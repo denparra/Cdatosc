@@ -96,6 +96,10 @@ def extract_whatsapp_number(soup):
             return match.group(1)  # Extrae solo los 9 dígitos sin el prefijo "56"
     return None
 
+def parse_precio(valor):
+    """Limpia y convierte una cadena de precio a float."""
+    return float(str(valor).replace('$', '').replace(',', '').strip())
+
 def scrape_vehicle_details(url):
     """Extrae detalles de un vehículo desde la URL dada."""
     headers = {
@@ -201,11 +205,12 @@ def update_contact(contact_id, link_auto, telefono, nombre, auto, precio, descri
         with get_connection() as con:
             cursor = con.cursor()
             telefono = "".join(telefono.split())
+            precio_val = parse_precio(precio)
             cursor.execute("""
                 UPDATE contactos
                 SET link_auto = ?, telefono = ?, nombre = ?, auto = ?, precio = ?, descripcion = ?
                 WHERE id = ?
-            """, (link_auto.strip(), telefono, nombre.strip(), auto.strip(), float(precio), descripcion.strip(), contact_id))
+            """, (link_auto.strip(), telefono, nombre.strip(), auto.strip(), precio_val, descripcion.strip(), contact_id))
             con.commit()
             return True
     except Exception as e:
@@ -321,7 +326,7 @@ elif page == "Agregar Contactos":
                 st.error("Todos los campos son requeridos.")
             else:
                 try:
-                    precio = float(precio_str.replace(",", "").strip())
+                    precio = parse_precio(precio_str)
                 except ValueError:
                     st.error("Precio inválido. Ejemplo: 10,500,000")
                     st.stop()
