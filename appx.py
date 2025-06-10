@@ -509,9 +509,15 @@ elif page == "Mensajes":
         df_mensajes = pd.read_sql_query("SELECT * FROM mensajes", get_connection())
         st.dataframe(df_mensajes)
 
-            mensaje = st.text_input("Mensaje para WhatsApp", "", key="mensaje_html")
-            html_content, html_name = generate_html(df_contactos, mensaje)
-            st.download_button("Generar HTML", data=html_content, file_name=html_name, mime="text/html")
+        mensaje = st.text_input("Mensaje para WhatsApp", "", key="mensaje_html")
+        df_contactos = pd.read_sql_query("SELECT * FROM contactos", get_connection())
+        html_content, html_name = generate_html(df_contactos, mensaje)
+        st.download_button(
+            "Generar HTML",
+            data=html_content,
+            file_name=html_name,
+            mime="text/html",
+        )
 
 # =============================================================================
 # PÁGINA: EDITAR
