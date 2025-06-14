@@ -298,7 +298,6 @@ elif page == "Agregar Contactos":
 
         # Después de obtener el valor del link y ejecutar el scraping
         link_auto_value = "".join(st.session_state.get("link_auto", "").split())
-        st.session_state.link_auto = link_auto_value
         scraped_data = {}
         if link_auto_value:
             scraped_data = scrape_vehicle_details(link_auto_value)
