@@ -194,27 +194,6 @@ def scrape_vehicle_details(url):
         st.error(f"Error de conexión: {e}")
         return None
     soup = BeautifulSoup(response.content, "html.parser")
-    # Extraer imagen de contacto
-    contact_img_tag = soup.find("img", src=lambda src: src and src.startswith("data:image"))
-    if contact_img_tag:
-        img_src = contact_img_tag.get("src", "")
-        if "base64," in img_src:
-            base64_data = img_src.split("base64,", 1)[1].strip()
-            base64_data = "".join(base64_data.split())
-            try:
-                image_bytes = base64.b64decode(base64_data)
-                os.makedirs('data', exist_ok=True)
-                img_path = os.path.join('data', 'contact_image.png')
-                with open(img_path, "wb") as f:
-                    f.write(image_bytes)
-                contact_image_file = img_path
-            except Exception as e:
-                st.error("Error al decodificar la imagen: " + str(e))
-                contact_image_file = "Error al decodificar"
-        else:
-            contact_image_file = "Formato de imagen no reconocido"
-    else:
-        contact_image_file = "No encontrado"
     
     # --- Extracción del número de WhatsApp ---
     whatsapp_number = extract_whatsapp_number(soup)
@@ -259,8 +238,7 @@ def scrape_vehicle_details(url):
         "anio": anio if anio else "No disponible",
         "precio": precio if precio else "No disponible",
         "descripcion": descripcion,
-        "contact_image_file": contact_image_file,
-        "whatsapp_number": whatsapp_number if whatsapp_number else "No disponible"
+        "whatsapp_number": whatsapp_number if whatsapp_number else "No disponible",
     }
 
 # =============================================================================
@@ -574,8 +552,6 @@ elif page == "Agregar Contactos":
         precio_prefill = scraped_data.get("precio", "") if scraped_data else ""
         descripcion_prefill = scraped_data.get("descripcion", "") if scraped_data else ""
 
-        if scraped_data.get("contact_image_file") and scraped_data["contact_image_file"] != "No encontrado":
-            st.image(scraped_data["contact_image_file"], caption="Imagen de contacto")
 
         with st.form("agregar_contacto_form"):
             telefono = st.text_input("Teléfono", value=whatsapp_prefill, key="telefono_input")
