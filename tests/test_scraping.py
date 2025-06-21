@@ -35,12 +35,10 @@ def test_scrape_vehicle_details(tmp_path):
         content = html.encode("utf-8")
 
     with patch.object(src.app.requests, "get", return_value=MockResponse()):
-        with patch("builtins.open", mock.mock_open()), \
-             patch("os.path.join", return_value=str(tmp_path / "img.png")):
-            data = src.app.scrape_vehicle_details("http://example.com")
+        data = src.app.scrape_vehicle_details("http://example.com")
 
     assert data["nombre"] == "2021 TestCar"
     assert data["whatsapp_number"] == "911122233"
     assert data["precio"] == "10,000"
     assert data["descripcion"] == "Great car"
-    assert data["contact_image_file"].endswith("img.png")
+    assert "contact_image_file" not in data

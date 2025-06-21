@@ -19,25 +19,6 @@ def scrape_vehicle_details(url):
 
     soup = BeautifulSoup(response.content, "html.parser")
 
-    # --- Extracción de la imagen de contacto ---
-    contact_img_tag = soup.find("img", src=lambda src: src and src.startswith("data:image"))
-    if contact_img_tag:
-        img_src = contact_img_tag.get("src", "")
-        if "base64," in img_src:
-            base64_data = img_src.split("base64,", 1)[1].strip()
-            base64_data = "".join(base64_data.split())
-            try:
-                image_bytes = base64.b64decode(base64_data)
-                with open("contact_image.png", "wb") as f:
-                    f.write(image_bytes)
-                contact_image_file = "contact_image.png"
-            except Exception as e:
-                st.error("Error al decodificar la imagen: " + str(e))
-                contact_image_file = "Error al decodificar"
-        else:
-            contact_image_file = "Formato de imagen no reconocido"
-    else:
-        contact_image_file = "No encontrado"
 
     # --- Extracción de información del vehículo (nombre, año, precio) ---
     nombre, anio, precio = None, None, None
@@ -96,8 +77,7 @@ def scrape_vehicle_details(url):
         "nombre": nombre_completo if nombre_completo else "No disponible",
         "anio": anio if anio else "No disponible",
         "precio": precio if precio else "No disponible",
-        "descripcion": descripcion,
-        "contact_image_file": contact_image_file
+        "descripcion": descripcion
     }
 
 # --- Interfaz de Streamlit ---
@@ -111,6 +91,3 @@ if st.button("Extraer datos"):
         st.markdown(f"**Nombre del vehículo:** {data['nombre']}")
         st.markdown(f"**Precio:** {data['precio']}")
         st.markdown(f"**Descripción:** {data['descripcion']}")
-        st.markdown(f"**Imagen de contacto:** {data['contact_image_file']}")
-        if data["contact_image_file"] not in ["No encontrado", "Error al decodificar", "Formato de imagen no reconocido"]:
-            st.image(data["contact_image_file"], caption="Imagen de contacto")

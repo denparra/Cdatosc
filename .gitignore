@@ -3,7 +3,5 @@ __pycache__/
 *.py[cod]
 
 # Data generated at runtime
-/data/contact_image.png
-
 # Environment files
 *.db

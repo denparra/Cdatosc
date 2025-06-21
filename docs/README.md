@@ -28,7 +28,6 @@ streamlit run src/app.py
 
 - **Extracción Automática de Información:**  
   Utilizar scraping (con Requests y BeautifulSoup) para extraer automáticamente información clave de páginas de autos:
-  - Imagen de contacto (decodificada desde datos en base64)
   - Detalles del vehículo (nombre, año, precio y descripción)
   - Número de WhatsApp (extracción mediante función específica)
 
@@ -63,7 +62,6 @@ streamlit run src/app.py
 - **Extracción Automática de Datos:**  
   La función `scrape_vehicle_details(url)` realiza lo siguiente:
   - Envía una solicitud HTTP a la URL dada.
-  - Extrae la imagen de contacto (usando datos base64).
   - Obtiene los detalles del vehículo, combinando año y nombre.
   - Busca y extrae el precio y una breve descripción.
   - Utiliza `extract_whatsapp_number(soup)` para obtener el número de WhatsApp (eliminando el prefijo "56" si se encuentra).  
@@ -117,7 +115,7 @@ streamlit run src/app.py
 
 - **Funciones de Scraping:**  
   - `extract_whatsapp_number(soup)`: Busca y extrae el número de WhatsApp de enlaces que siguen el patrón especificado.  
-  - `scrape_vehicle_details(url)`: Realiza el scraping completo para obtener la imagen, detalles del vehículo y número de WhatsApp, y retorna la información en un diccionario.
+  - `scrape_vehicle_details(url)`: Realiza el scraping completo para obtener los detalles del vehículo y el número de WhatsApp, y retorna la información en un diccionario.
 
 - **Operaciones CRUD:**  
   - Inserción de registros en las tablas `links_contactos` y `contactos`.
