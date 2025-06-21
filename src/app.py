@@ -7,6 +7,7 @@ import requests
 from bs4 import BeautifulSoup
 import re
 import base64
+import imghdr
 import urllib.parse
 import os
 
@@ -379,8 +380,12 @@ def apply_template(template, contacto):
     return re.sub(r"{(.*?)}", repl, template)
 
 
-def generate_html(df, message_template):
-    """Genera un archivo HTML con enlaces de WhatsApp."""
+def generate_html(df, message_template, image_bytes=None):
+    """Genera un archivo HTML con enlaces de WhatsApp.
+
+    Si ``image_bytes`` se proporciona, la imagen se incrusta en el archivo
+    utilizando un data URL.
+    """
     timestamp = datetime.datetime.now().strftime("%d-%m-%Y_%H%M")
     html_lines = [
         "<html>",
@@ -390,6 +395,10 @@ def generate_html(df, message_template):
         "<body>",
         f"<h1>REPORTE {timestamp}</h1>"
     ]
+    if image_bytes:
+        img_type = imghdr.what(None, h=image_bytes) or "jpeg"
+        b64 = base64.b64encode(image_bytes).decode("utf-8")
+        html_lines.append(f'<img src="data:image/{img_type};base64,{b64}" /><br>')
     for idx, (_, row) in enumerate(df.iterrows(), start=1):
         telefono = "".join(str(row.get("telefono", "")).split())
         contacto = row.get("auto") or row.get("nombre", "")
@@ -643,6 +652,9 @@ elif page == "Ver Contactos & Exportar":
             with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                 df_contactos.to_excel(writer, index=False, sheet_name='Contactos')
 
+            image_file = st.file_uploader('Imagen (opcional)', type=['jpg', 'jpeg', 'png'])
+            image_bytes = image_file.read() if image_file else None
+
             col1, col2 = st.columns(2)
             with col1:
                 st.download_button(
@@ -652,7 +664,7 @@ elif page == "Ver Contactos & Exportar":
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 )
             with col2:
-                html_content, html_name = generate_html(df_contactos, mensaje_raw)
+                html_content, html_name = generate_html(df_contactos, mensaje_raw, image_bytes=image_bytes)
                 st.download_button(
                     "Generar HTML",
                     data=html_content,
@@ -691,8 +703,10 @@ elif page == "Mensajes":
 
     mensaje_default = st.session_state.get('mensaje_html', '')
     mensaje = st.text_input("Mensaje para WhatsApp", mensaje_default, key="mensaje_html")
+    image_file = st.file_uploader('Imagen (opcional)', type=['jpg', 'jpeg', 'png'])
+    image_bytes = image_file.read() if image_file else None
     if df_contactos is not None and not df_contactos.empty:
-        html_content, html_name = generate_html(df_contactos, mensaje)
+        html_content, html_name = generate_html(df_contactos, mensaje, image_bytes=image_bytes)
         st.download_button(
             "Generar HTML",
             data=html_content,
