@@ -23,15 +23,18 @@ def import_app():
         return src.app
 
 
-def test_generate_html_includes_image():
+def test_generate_html_creates_links():
     app = import_app()
     df = MagicMock()
+
     class Row(dict):
         def to_dict(self):
             return dict(self)
 
-    df.iterrows.return_value = iter([(0, Row({"telefono": "912345678", "auto": "A", "nombre": "X"}))])
-    content, name = app.generate_html(df, "Hola", image_bytes=b"abc")
+    df.iterrows.return_value = iter(
+        [(0, Row({"telefono": "912345678", "auto": "A", "nombre": "X"}))]
+    )
+    content, name = app.generate_html(df, "Hola")
     html = content.decode("utf-8")
-    assert "data:image" in html
     assert "CONTACTO 1" in html
+    assert "data:image" not in html

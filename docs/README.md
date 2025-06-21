@@ -74,8 +74,10 @@ streamlit run src/app.py
 - **Visualización de Registros:**  
   Los datos se muestran en tablas interactivas (utilizando Pandas DataFrame) con opciones de filtrado por nombre, auto y teléfono.
 
-- **Exportación a Excel:**  
+- **Exportación a Excel:**
   Los registros filtrados se pueden exportar a un archivo Excel mediante XlsxWriter y un botón de descarga.
+- **Generación de HTML:**
+  También es posible generar un archivo HTML con enlaces de WhatsApp listos para usar (solo texto, sin imágenes adjuntas).
 
 ### 3.4 Edición y Eliminación
 

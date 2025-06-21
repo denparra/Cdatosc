@@ -2,7 +2,6 @@ import streamlit as st
 import requests
 from bs4 import BeautifulSoup
 import re
-import base64
 
 def scrape_vehicle_details(url):
     headers = {

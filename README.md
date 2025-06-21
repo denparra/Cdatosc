@@ -14,6 +14,8 @@ pip install -r requirements.txt
 streamlit run src/app.py
 ```
 
+La exportación permite generar un archivo HTML con enlaces de WhatsApp listos para enviar (sin adjuntar imágenes).
+
 Para más detalles sobre el proyecto consulta [docs/README.md](docs/README.md).
 
 ## Pruebas
