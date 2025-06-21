@@ -109,25 +109,6 @@ def scrape_vehicle_details(url):
         st.error(f"Error al obtener la página: {response.status_code}")
         return None
     soup = BeautifulSoup(response.content, "html.parser")
-    # Extraer imagen de contacto
-    contact_img_tag = soup.find("img", src=lambda src: src and src.startswith("data:image"))
-    if contact_img_tag:
-        img_src = contact_img_tag.get("src", "")
-        if "base64," in img_src:
-            base64_data = img_src.split("base64,", 1)[1].strip()
-            base64_data = "".join(base64_data.split())
-            try:
-                image_bytes = base64.b64decode(base64_data)
-                with open("contact_image.png", "wb") as f:
-                    f.write(image_bytes)
-                contact_image_file = "contact_image.png"
-            except Exception as e:
-                st.error("Error al decodificar la imagen: " + str(e))
-                contact_image_file = "Error al decodificar"
-        else:
-            contact_image_file = "Formato de imagen no reconocido"
-    else:
-        contact_image_file = "No encontrado"
     
     # --- Extracción del número de WhatsApp ---
     whatsapp_number = extract_whatsapp_number(soup)
@@ -172,7 +153,6 @@ def scrape_vehicle_details(url):
         "anio": anio if anio else "No disponible",
         "precio": precio if precio else "No disponible",
         "descripcion": descripcion,
-        "contact_image_file": contact_image_file,
         "whatsapp_number": whatsapp_number if whatsapp_number else "No disponible"
     }
 
