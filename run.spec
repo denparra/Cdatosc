@@ -5,7 +5,7 @@ a = Analysis(
     ['run.py'],
     pathex=[],
     binaries=[],
-    datas=[('src/app.py', 'src'), ('data/contact_image.png', 'data'), ('data/datos_consignacion.db', 'data')],
+    datas=[('src/app.py', 'src'), ('data/datos_consignacion.db', 'data')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
