@@ -7,9 +7,25 @@ import requests
 from bs4 import BeautifulSoup
 import re
 import base64
-import imghdr
+try:
+    import imghdr
+except ModuleNotFoundError:  # Python 3.13+
+    imghdr = None
 import urllib.parse
 import os
+
+
+def detect_image_type(data: bytes) -> str:
+    """Return image MIME subtype based on content."""
+    if imghdr is not None:
+        t = imghdr.what(None, h=data)
+        if t:
+            return t
+    if data.startswith(b"\xff\xd8"):
+        return "jpeg"
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "png"
+    return "jpeg"
 
 # =============================================================================
 # CONFIGURACIÓN BÁSICA Y ESTILOS
@@ -396,7 +412,7 @@ def generate_html(df, message_template, image_bytes=None):
         f"<h1>REPORTE {timestamp}</h1>"
     ]
     if image_bytes:
-        img_type = imghdr.what(None, h=image_bytes) or "jpeg"
+        img_type = detect_image_type(image_bytes)
         b64 = base64.b64encode(image_bytes).decode("utf-8")
         html_lines.append(f'<img src="data:image/{img_type};base64,{b64}" /><br>')
     for idx, (_, row) in enumerate(df.iterrows(), start=1):
