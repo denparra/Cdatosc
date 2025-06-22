@@ -220,49 +220,50 @@ Esta tabla almacena la información específica de cada contacto y se relaciona 
 
 ## 7. Empaquetado y Despliegue
 
-Para generar un ejecutable autónomo que funcione en cualquier PC sin necesidad de instalar manualmente las dependencias, se puede utilizar **PyInstaller** o **auto-py-to-exe**.
+La carpeta incluye `run.py` y el archivo de especificación `run.spec` para
+construir un ejecutable con **PyInstaller**.  Esto permite distribuir la
+aplicación sin necesidad de instalar manualmente las dependencias.
 
-### Ejemplo de Comando con PyInstaller (en Windows):
+Ejemplo básico de generación del ejecutable:
 
 ```bash
-pyinstaller --onefile --windowed --hidden-import=importlib_metadata --collect-all streamlit --collect-all bs4 --add-data "str.py;." run.py
+pyinstaller run.spec
+```
 
+En Windows también puede utilizarse el comando:
 
-Puntos a Considerar:
+```bash
+pyinstaller --onefile --windowed --hidden-import=importlib_metadata \
+    --collect-all streamlit --collect-all bs4 --add-data "str.py;." run.py
+```
 
-Utilizar la opción --onefile para generar un ejecutable único.
+## 8. Instrucciones de Uso
 
-Incluir todos los módulos y recursos necesarios.
+**Navegación principal**
 
-Asegurarse de que el sistema destino tenga instalados los componentes necesarios (por ejemplo, Microsoft Visual C++ Redistributable en Windows).
+- **Crear Link Contactos:** registra la URL base, fecha, marca y descripción
+  para agrupar contactos.
+- **Agregar Contactos:** selecciona el link creado, ingresa el "Link del Auto" y
+  deja que el sistema complete automáticamente los datos (teléfono, nombre,
+  auto, precio y descripción).
+- **Ver Contactos & Exportar:** permite filtrar y visualizar los registros,
+  exportarlos a Excel o generar un archivo HTML con enlaces de WhatsApp.
+- **Mensajes:** gestiona plantillas de texto que pueden incluir marcadores como
+  `{nombre}` o `{auto}`. Estos se sustituyen al generar los enlaces.
+- **Editar:** actualiza o elimina contactos, links y mensajes existentes.
 
-##8. Instrucciones de Uso
-Ejecución de la Aplicación:
+El botón **Borrar Campos** limpia los formularios para facilitar el ingreso de
+nuevos datos sin interferencias de `st.session_state`.
 
-bash
-Copiar
-Navegación:
+## 9. Pruebas
 
-Crear Link Contactos:
-Registra la URL base, fecha, marca y descripción para agrupar contactos.
+El proyecto incorpora pruebas unitarias ejecutables con:
 
-Agregar Contactos:
-Selecciona el link creado, ingresa el "Link del Auto" y deja que el sistema extraiga automáticamente los datos (teléfono, nombre, auto, precio y descripción) para luego poder editarlos o confirmarlos.
+```bash
+pytest
+```
 
-Ver Contactos & Exportar:
-Filtra y visualiza los registros existentes y exporta los datos a un archivo Excel.
-
-Editar:
-Permite actualizar o eliminar contactos y links mediante formularios interactivos.
-
-Mensajes:
-Gestiona plantillas para enviar por WhatsApp. Los textos pueden incluir
-marcadores como `{nombre}` o `{auto}` que se sustituyen automáticamente
-con la información del contacto al generar los enlaces.
-
-Borrar Campos: Se ha implementado un botón que, al ser presionado (ubicado antes del widget "Link del Auto"), limpia el contenido de ese campo y de los demás formularios asociados, facilitando el ingreso de nuevos datos sin conflictos con los valores almacenados en st.session_state.
-
-##9. Mejoras Futuras
+## 10. Mejoras Futuras
 Optimización del Scraping:
 Mejorar el manejo de errores y ampliar la extracción de datos para soportar diferentes estructuras de páginas web.
 
