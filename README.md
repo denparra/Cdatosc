@@ -1,6 +1,9 @@
 # DATOS_CONSIGNACION
 
-Esta aplicación de Streamlit permite recolectar y administrar contactos de venta de autos. Los datos se guardan en SQLite y se obtienen automáticamente desde páginas de vehículos mediante scraping.
+Aplicación en Streamlit para registrar y organizar contactos de venta de
+automóviles. Emplea SQLite para el almacenamiento y utiliza técnicas de
+_scraping_ con **Requests** y **BeautifulSoup** para completar
+automáticamente los datos de cada vehículo.
 
 ## Instalación
 
@@ -8,15 +11,23 @@ Esta aplicación de Streamlit permite recolectar y administrar contactos de vent
 pip install -r requirements.txt
 ```
 
-## Ejecutar la aplicación
+## Uso rápido
+
+Ejecución directa con Streamlit:
 
 ```bash
 streamlit run src/app.py
 ```
 
-La exportación permite generar un archivo HTML con enlaces de WhatsApp listos para enviar (sin adjuntar imágenes).
+También existe el script `run.py` que permite empaquetar la aplicación con
+PyInstaller o ejecutarla desde un entorno virtual ya configurado:
 
-Para más detalles sobre el proyecto consulta [docs/README.md](docs/README.md).
+```bash
+python run.py
+```
+
+Para instrucciones detalladas, consulta
+[docs/README.md](docs/README.md).
 
 ## Pruebas
 
