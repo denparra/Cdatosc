@@ -8,6 +8,7 @@ from bs4 import BeautifulSoup
 import re
 import urllib.parse
 import os
+import hashlib
 
 # =============================================================================
 # CONFIGURACIÓN BÁSICA Y ESTILOS
@@ -37,6 +38,9 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 """
 st.markdown(disable_enter_js, unsafe_allow_html=True)
+
+if 'user' not in st.session_state:
+    st.session_state['user'] = None
 
 # =============================================================================
 # CONEXIÓN A LA BASE DE DATOS Y CREACIÓN DE TABLAS
@@ -103,17 +107,54 @@ def migrate_contactos_schema():
             cur.execute("DROP TABLE contactos_old")
             con.commit()
 
+def migrate_user_schema():
+    """Crea tabla de usuarios y agrega columnas user_id."""
+    with get_connection() as con:
+        cur = con.cursor()
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                role TEXT NOT NULL
+            )
+            """
+        )
+        cur.execute("PRAGMA table_info(links_contactos)")
+        cols = [r[1] for r in cur.fetchall()]
+        if "user_id" not in cols:
+            cur.execute("ALTER TABLE links_contactos ADD COLUMN user_id INTEGER")
+
+        cur.execute("PRAGMA table_info(mensajes)")
+        cols = [r[1] for r in cur.fetchall()]
+        if "user_id" not in cols:
+            cur.execute("ALTER TABLE mensajes ADD COLUMN user_id INTEGER")
+
+        con.commit()
+
 def create_tables():
     """Crea las tablas necesarias si no existen."""
     with get_connection() as con:
         cursor = con.cursor()
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                role TEXT NOT NULL
+            )
+            """
+        )
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS links_contactos (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 link_general TEXT NOT NULL,
                 fecha_creacion TEXT NOT NULL,
                 marca TEXT NOT NULL,
-                descripcion TEXT NOT NULL
+                descripcion TEXT NOT NULL,
+                user_id INTEGER
             )
         ''')
         cursor.execute('''
@@ -132,7 +173,8 @@ def create_tables():
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS mensajes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                descripcion TEXT NOT NULL
+                descripcion TEXT NOT NULL,
+                user_id INTEGER
             )
         ''')
         cursor.execute('''
@@ -149,12 +191,51 @@ def create_tables():
         con.commit()
 
 migrate_contactos_schema()
+migrate_user_schema()
 create_tables()
 
 def read_query(query, params=None):
     """Ejecuta una consulta SQL y retorna un DataFrame."""
     with get_connection() as con:
         return pd.read_sql_query(query, con, params=params)
+
+# =============================================================================
+# FUNCIONES DE USUARIOS
+# =============================================================================
+def hash_password(password: str) -> str:
+    return hashlib.sha256(password.encode()).hexdigest()
+
+
+def create_user(username: str, password: str, role: str = "user"):
+    """Crea un nuevo usuario y retorna su id."""
+    with get_connection() as con:
+        cur = con.cursor()
+        cur.execute(
+            "INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)",
+            (username.strip(), hash_password(password), role),
+        )
+        con.commit()
+        return cur.lastrowid
+
+
+def authenticate_user(username: str, password: str):
+    """Retorna el usuario si las credenciales son correctas."""
+    with get_connection() as con:
+        cur = con.cursor()
+        cur.execute(
+            "SELECT id, role FROM users WHERE username=? AND password_hash=?",
+            (username.strip(), hash_password(password)),
+        )
+        row = cur.fetchone()
+        if row:
+            return {"id": row[0], "role": row[1]}
+    return None
+
+
+def delete_user(user_id: int):
+    with get_connection() as con:
+        con.execute("DELETE FROM users WHERE id=?", (user_id,))
+        con.commit()
 
 # =============================================================================
 # FUNCIONES DE SCRAPING
@@ -323,14 +404,14 @@ def delete_contact(contact_id):
 # =============================================================================
 # FUNCIONES PARA MANEJO DE MENSAJES
 # =============================================================================
-def add_message(texto):
+def add_message(texto, user_id=1):
     """Agrega un nuevo mensaje y retorna su id."""
     try:
         with get_connection() as con:
             cur = con.cursor()
             cur.execute(
-                "INSERT INTO mensajes (descripcion) VALUES (?)",
-                (texto.strip(),),
+                "INSERT INTO mensajes (descripcion, user_id) VALUES (?, ?)",
+                (texto.strip(), user_id),
             )
             con.commit()
             return cur.lastrowid
@@ -404,20 +485,52 @@ def generate_html(df, message_template):
 # INTERFAZ DE USUARIO: MENÚ Y NAVEGACIÓN
 # =============================================================================
 if 'page' not in st.session_state:
-    st.session_state.page = "Crear Link Contactos"
+    st.session_state.page = "Login" if st.session_state['user'] is None else "Crear Link Contactos"
 
 st.sidebar.title("Navegación")
-menu_options = (
-    "Crear Link Contactos",
-    "Links Contactos",
-    "Agregar Contactos",
-    "Ver Contactos & Exportar",
-    "Mensajes",
-    "Editar",
-)
-default_index = menu_options.index(st.session_state.page)
+
+if st.session_state['user'] is None:
+    menu_options = ("Login",)
+else:
+    menu_options = (
+        "Crear Link Contactos",
+        "Links Contactos",
+        "Agregar Contactos",
+        "Ver Contactos & Exportar",
+        "Mensajes",
+        "Editar",
+    )
+    if st.session_state['user']['role'] == 'admin':
+        menu_options += ("Admin Usuarios",)
+
+default_index = menu_options.index(st.session_state.page) if st.session_state.page in menu_options else 0
 page = st.sidebar.radio("Ir a:", menu_options, index=default_index)
 st.session_state.page = page
+
+if st.session_state['user']:
+    if st.sidebar.button("Cerrar Sesión"):
+        st.session_state.user = None
+        st.session_state.page = "Login"
+        st.experimental_rerun()
+
+# =============================================================================
+# PÁGINA: LOGIN
+# =============================================================================
+if page == "Login":
+    st.title("Iniciar Sesión")
+    with st.form("login_form"):
+        username = st.text_input("Usuario")
+        password = st.text_input("Contraseña", type="password")
+        submit_login = st.form_submit_button("Entrar")
+    if submit_login:
+        user = authenticate_user(username, password)
+        if user:
+            st.session_state.user = user
+            st.success("Autenticado")
+            st.session_state.page = "Crear Link Contactos"
+            st.experimental_rerun()
+        else:
+            st.error("Credenciales inválidas")
 
 # =============================================================================
 # PÁGINA: CREAR LINK CONTACTOS
@@ -436,10 +549,19 @@ if page == "Crear Link Contactos":
         else:
             with get_connection() as con:
                 cursor = con.cursor()
-                cursor.execute('''
-                    INSERT INTO links_contactos (link_general, fecha_creacion, marca, descripcion)
-                    VALUES (?, ?, ?, ?)
-                ''', (link_general.strip(), fecha_creacion.strftime("%Y-%m-%d"), marca.strip(), descripcion.strip()))
+                cursor.execute(
+                    """
+                    INSERT INTO links_contactos (link_general, fecha_creacion, marca, descripcion, user_id)
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (
+                        link_general.strip(),
+                        fecha_creacion.strftime("%Y-%m-%d"),
+                        marca.strip(),
+                        descripcion.strip(),
+                        st.session_state['user']['id'],
+                    ),
+                )
                 con.commit()
             st.success("Link Contactos creado exitosamente.")
 
@@ -448,7 +570,10 @@ if page == "Crear Link Contactos":
 # =============================================================================
 elif page == "Links Contactos":
     st.title("Links de Contactos")
-    df_links = read_query("SELECT * FROM links_contactos")
+    df_links = read_query(
+        "SELECT * FROM links_contactos WHERE user_id = ?",
+        params=[st.session_state['user']['id']],
+    )
     if df_links.empty:
         st.warning("No existen links.")
     else:
@@ -501,7 +626,10 @@ elif page == "Links Contactos":
 # =============================================================================
 elif page == "Agregar Contactos":
     st.title("Agregar Contactos")
-    df_links = read_query("SELECT * FROM links_contactos")
+    df_links = read_query(
+        "SELECT * FROM links_contactos WHERE user_id = ?",
+        params=[st.session_state['user']['id']],
+    )
     if df_links.empty:
         st.warning("No existen links. Cree un Link Contactos primero.")
     else:
@@ -587,7 +715,10 @@ elif page == "Agregar Contactos":
 # =============================================================================
 elif page == "Ver Contactos & Exportar":
     st.title("Ver Contactos & Exportar")
-    df_links = read_query("SELECT * FROM links_contactos")
+    df_links = read_query(
+        "SELECT * FROM links_contactos WHERE user_id = ?",
+        params=[st.session_state['user']['id']],
+    )
     if df_links.empty:
         st.warning("No existen links. Cree un Link Contactos primero.")
     else:
@@ -619,7 +750,10 @@ elif page == "Ver Contactos & Exportar":
         df_contactos = read_query(query, params=params)
         st.session_state['df_contactos'] = df_contactos
         st.subheader("Contactos Registrados")
-        mensajes_df = read_query("SELECT * FROM mensajes")
+        mensajes_df = read_query(
+            "SELECT * FROM mensajes WHERE user_id = ?",
+            params=[st.session_state['user']['id']],
+        )
         selected_message = None
         if mensajes_df.empty:
             st.warning("No existen mensajes. Agregue uno en la sección Mensajes.")
@@ -675,7 +809,10 @@ elif page == "Ver Contactos & Exportar":
 elif page == "Mensajes":
     st.title("Plantillas de Mensaje")
     df_contactos = st.session_state.get('df_contactos')
-    df_mensajes = read_query("SELECT * FROM mensajes")
+    df_mensajes = read_query(
+        "SELECT * FROM mensajes WHERE user_id = ?",
+        params=[st.session_state['user']['id']],
+    )
     st.subheader("Mensajes Registrados")
     st.dataframe(df_mensajes)
 
@@ -683,9 +820,12 @@ elif page == "Mensajes":
         mensaje_nuevo = st.text_area("Nuevo Mensaje")
         submit_mensaje = st.form_submit_button("Guardar Mensaje")
     if submit_mensaje and mensaje_nuevo.strip():
-        add_message(mensaje_nuevo)
+        add_message(mensaje_nuevo, st.session_state['user']['id'])
         st.success("Mensaje guardado")
-        df_mensajes = read_query("SELECT * FROM mensajes")
+        df_mensajes = read_query(
+            "SELECT * FROM mensajes WHERE user_id = ?",
+            params=[st.session_state['user']['id']],
+        )
         st.dataframe(df_mensajes)
 
     mensaje_default = st.session_state.get('mensaje_html', '')
@@ -721,8 +861,11 @@ elif page == "Editar":
         st.subheader("Editar Contactos por Teléfono")
         phone_query = st.text_input("Ingrese parte o el número completo del teléfono a buscar")
         if phone_query:
-            query = "SELECT * FROM contactos WHERE telefono LIKE ?"
-            params = [f"%{phone_query}%"]
+            query = (
+                "SELECT c.* FROM contactos c JOIN links_contactos l ON c.id_link = l.id "
+                "WHERE l.user_id = ? AND c.telefono LIKE ?"
+            )
+            params = [st.session_state['user']['id'], f"%{phone_query}%"]
             df_search = read_query(query, params=params)
             if df_search.empty:
                 st.warning("No se encontraron contactos para ese número.")
@@ -772,7 +915,10 @@ elif page == "Editar":
     # --------------------------------------------------------------------------
     elif opcion_editar == "Editar Links":
         st.subheader("Editar Links")
-        df_links = read_query("SELECT * FROM links_contactos")
+        df_links = read_query(
+            "SELECT * FROM links_contactos WHERE user_id = ?",
+            params=[st.session_state['user']['id']],
+        )
         if df_links.empty:
             st.warning("No existen links. Cree uno primero.")
         else:
@@ -804,7 +950,10 @@ elif page == "Editar":
     # --------------------------------------------------------------------------
     else:
         st.subheader("Editar Mensajes")
-        df_mensajes = read_query("SELECT * FROM mensajes")
+        df_mensajes = read_query(
+            "SELECT * FROM mensajes WHERE user_id = ?",
+            params=[st.session_state['user']['id']],
+        )
         if df_mensajes.empty:
             st.warning("No existen mensajes.")
         else:
@@ -838,5 +987,35 @@ elif page == "Editar":
                     else:
                         st.error("Error al eliminar el mensaje.")
 
-            df_mensajes = read_query("SELECT * FROM mensajes")
+            df_mensajes = read_query(
+                "SELECT * FROM mensajes WHERE user_id = ?",
+                params=[st.session_state['user']['id']],
+            )
             st.dataframe(df_mensajes)
+
+# =============================================================================
+# PÁGINA: ADMIN USUARIOS
+# =============================================================================
+elif page == "Admin Usuarios":
+    if st.session_state['user']['role'] != 'admin':
+        st.error("Acceso denegado")
+    else:
+        st.title("Administración de Usuarios")
+        df_users = read_query("SELECT id, username, role FROM users")
+        st.dataframe(df_users)
+
+        with st.form("crear_usuario_form"):
+            new_user = st.text_input("Usuario")
+            new_pass = st.text_input("Contraseña", type="password")
+            new_role = st.selectbox("Rol", ["user", "admin"])
+            submit_user = st.form_submit_button("Crear Usuario")
+        if submit_user and new_user and new_pass:
+            create_user(new_user, new_pass, new_role)
+            st.success("Usuario creado")
+            st.experimental_rerun()
+
+        del_id = st.number_input("ID a eliminar", min_value=1, step=1)
+        if st.button("Eliminar Usuario"):
+            delete_user(int(del_id))
+            st.success("Usuario eliminado")
+            st.experimental_rerun()
