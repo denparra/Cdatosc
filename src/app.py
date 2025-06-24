@@ -190,9 +190,7 @@ def create_tables():
         ''')
         con.commit()
 
-migrate_contactos_schema()
-migrate_user_schema()
-create_tables()
+
 
 def read_query(query, params=None):
     """Ejecuta una consulta SQL y retorna un DataFrame."""
@@ -236,6 +234,29 @@ def delete_user(user_id: int):
     with get_connection() as con:
         con.execute("DELETE FROM users WHERE id=?", (user_id,))
         con.commit()
+
+
+def ensure_default_users():
+    """Crea un usuario administrador y uno de prueba si no existen."""
+    with get_connection() as con:
+        cur = con.cursor()
+        cur.execute("SELECT COUNT(*) FROM users WHERE role='admin'")
+        admin_count = cur.fetchone()[0]
+        if admin_count == 0:
+            cur.execute(
+                "INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)",
+                ("admin", hash_password("admin"), "admin"),
+            )
+            cur.execute(
+                "INSERT OR IGNORE INTO users (username, password_hash, role) VALUES (?, ?, ?)",
+                ("test", hash_password("test"), "user"),
+            )
+        con.commit()
+
+migrate_contactos_schema()
+migrate_user_schema()
+create_tables()
+ensure_default_users()
 
 # =============================================================================
 # FUNCIONES DE SCRAPING
