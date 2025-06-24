@@ -532,7 +532,7 @@ if st.session_state['user']:
     if st.sidebar.button("Cerrar Sesión"):
         st.session_state.user = None
         st.session_state.page = "Login"
-        st.experimental_rerun()
+        st.rerun()
 
 # =============================================================================
 # PÁGINA: LOGIN
@@ -549,7 +549,7 @@ if page == "Login":
             st.session_state.user = user
             st.success("Autenticado")
             st.session_state.page = "Crear Link Contactos"
-            st.experimental_rerun()
+            st.rerun()
         else:
             st.error("Credenciales inválidas")
 
@@ -1033,10 +1033,10 @@ elif page == "Admin Usuarios":
         if submit_user and new_user and new_pass:
             create_user(new_user, new_pass, new_role)
             st.success("Usuario creado")
-            st.experimental_rerun()
+            st.rerun()
 
         del_id = st.number_input("ID a eliminar", min_value=1, step=1)
         if st.button("Eliminar Usuario"):
             delete_user(int(del_id))
             st.success("Usuario eliminado")
-            st.experimental_rerun()
+            st.rerun()
