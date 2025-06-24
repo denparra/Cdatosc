@@ -21,6 +21,12 @@ Para ejecutar la aplicación:
 streamlit run src/app.py
 ```
 
+Al iniciarse la aplicación se crea un administrador por defecto con las
+siguientes credenciales:
+
+- **usuario:** `admin`
+- **contraseña:** `admin`
+
 ## 2. Objetivos del Proyecto
 
 - **Ingreso y Almacenamiento de Datos:**  

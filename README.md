@@ -19,6 +19,11 @@ Ejecución directa con Streamlit:
 streamlit run src/app.py
 ```
 
+Al iniciarse la base de datos se crea un usuario administrador por defecto:
+
+- **usuario:** `admin`
+- **contraseña:** `admin`
+
 También existe el script `run.py` que permite empaquetar la aplicación con
 PyInstaller o ejecutarla desde un entorno virtual ya configurado:
 
