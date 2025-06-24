@@ -5,6 +5,10 @@ automóviles. Emplea SQLite para el almacenamiento y utiliza técnicas de
 _scraping_ con **Requests** y **BeautifulSoup** para completar
 automáticamente los datos de cada vehículo.
 
+La aplicación cuenta con un sistema de autenticación de usuarios con roles
+(**admin** o **user**) almacenados en la base de datos. El rol administrador
+puede gestionar otras cuentas desde la interfaz.
+
 ## Instalación
 
 ```bash
