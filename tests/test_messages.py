@@ -28,7 +28,7 @@ def import_app():
 def make_memory_db():
     conn = sqlite3.connect(":memory:")
     conn.execute(
-        "CREATE TABLE mensajes (id INTEGER PRIMARY KEY AUTOINCREMENT, descripcion TEXT NOT NULL)"
+        "CREATE TABLE mensajes (id INTEGER PRIMARY KEY AUTOINCREMENT, descripcion TEXT NOT NULL, user_id INTEGER)"
     )
     return conn
 
