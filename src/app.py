@@ -117,7 +117,7 @@ def migrate_contactos_schema():
             con.commit()
 
 def migrate_user_schema():
-    """Crea tabla de usuarios y agrega columnas user_id."""
+    """Crea tabla de usuarios y agrega columnas ``user_id`` si faltan."""
     with get_connection() as con:
         cur = con.cursor()
         cur.execute(
@@ -130,15 +130,24 @@ def migrate_user_schema():
             )
             """
         )
-        cur.execute("PRAGMA table_info(links_contactos)")
-        cols = [r[1] for r in cur.fetchall()]
-        if "user_id" not in cols:
-            cur.execute("ALTER TABLE links_contactos ADD COLUMN user_id INTEGER")
 
-        cur.execute("PRAGMA table_info(mensajes)")
-        cols = [r[1] for r in cur.fetchall()]
-        if "user_id" not in cols:
-            cur.execute("ALTER TABLE mensajes ADD COLUMN user_id INTEGER")
+        cur.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='links_contactos'"
+        )
+        if cur.fetchone():
+            cur.execute("PRAGMA table_info(links_contactos)")
+            cols = [r[1] for r in cur.fetchall()]
+            if "user_id" not in cols:
+                cur.execute("ALTER TABLE links_contactos ADD COLUMN user_id INTEGER")
+
+        cur.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='mensajes'"
+        )
+        if cur.fetchone():
+            cur.execute("PRAGMA table_info(mensajes)")
+            cols = [r[1] for r in cur.fetchall()]
+            if "user_id" not in cols:
+                cur.execute("ALTER TABLE mensajes ADD COLUMN user_id INTEGER")
 
         con.commit()
 
@@ -262,9 +271,9 @@ def ensure_default_users():
             )
         con.commit()
 
+create_tables()
 migrate_contactos_schema()
 migrate_user_schema()
-create_tables()
 ensure_default_users()
 
 # =============================================================================
