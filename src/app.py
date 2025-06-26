@@ -8,7 +8,16 @@ from bs4 import BeautifulSoup
 import re
 import urllib.parse
 import os
+import sys
 import hashlib
+
+
+def resource_path(relative_path):
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
 
 # =============================================================================
 # CONFIGURACIÓN BÁSICA Y ESTILOS
@@ -45,11 +54,11 @@ if 'user' not in st.session_state:
 # =============================================================================
 # CONEXIÓN A LA BASE DE DATOS Y CREACIÓN DE TABLAS
 # =============================================================================
-db_filename = os.path.join('data', 'datos_consignacion.db')
+db_filename = resource_path(os.path.join("data", "datos_consignacion.db"))
 
 def get_connection():
     """Retorna una nueva conexión a la base de datos."""
-    os.makedirs('data', exist_ok=True)
+    os.makedirs(os.path.dirname(db_filename), exist_ok=True)
     return sqlite3.connect(db_filename, check_same_thread=False)
 
 # -----------------------------------------------------------------------------
