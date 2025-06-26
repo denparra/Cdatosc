@@ -657,7 +657,7 @@ elif page == "Links Contactos":
                     users_df = read_query("SELECT id, username FROM users")
                     user_options = users_df.apply(lambda r: f"{r['id']} - {r['username']}", axis=1)
                     if selected['user_id'] is not None and selected['user_id'] in users_df['id'].values:
-                        default_idx = users_df.index[users_df['id'] == selected['user_id']][0]
+                        default_idx = int(users_df.index[users_df['id'] == selected['user_id']][0])
                     else:
                         default_idx = 0
                     user_selection = st.selectbox("Asignar a Usuario", user_options, index=default_idx)
@@ -1014,7 +1014,7 @@ elif page == "Editar":
                     users_df = read_query("SELECT id, username FROM users")
                     user_opts = users_df.apply(lambda r: f"{r['id']} - {r['username']}", axis=1)
                     if selected_link['user_id'] is not None and selected_link['user_id'] in users_df['id'].values:
-                        default_idx = users_df.index[users_df['id'] == selected_link['user_id']][0]
+                        default_idx = int(users_df.index[users_df['id'] == selected_link['user_id']][0])
                     else:
                         default_idx = 0
                     user_sel = st.selectbox("Asignar a Usuario", user_opts, index=default_idx)
