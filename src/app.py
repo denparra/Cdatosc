@@ -345,7 +345,14 @@ def scrape_vehicle_details(url):
 # =============================================================================
 # FUNCIONES DE ACTUALIZACIÓN Y ELIMINACIÓN EN LA BASE DE DATOS
 # =============================================================================
-def update_link_record(link_id, new_link_general, new_fecha, new_marca, new_descripcion):
+def update_link_record(
+    link_id,
+    new_link_general,
+    new_fecha,
+    new_marca,
+    new_descripcion,
+    new_user_id=None,
+):
     """Actualiza un registro en la tabla links_contactos."""
     try:
         with get_connection() as con:
@@ -353,7 +360,8 @@ def update_link_record(link_id, new_link_general, new_fecha, new_marca, new_desc
             cursor.execute(
                 """
                 UPDATE links_contactos
-                SET link_general = ?, fecha_creacion = ?, marca = ?, descripcion = ?
+                SET link_general = ?, fecha_creacion = ?, marca = ?, descripcion = ?,
+                    user_id = COALESCE(?, user_id)
                 WHERE id = ?
                 """,
                 (
@@ -361,6 +369,7 @@ def update_link_record(link_id, new_link_general, new_fecha, new_marca, new_desc
                     new_fecha.strftime("%Y-%m-%d"),
                     new_marca.strip(),
                     new_descripcion.strip(),
+                    new_user_id,
                     link_id,
                 ),
             )
@@ -604,10 +613,13 @@ if page == "Crear Link Contactos":
 # =============================================================================
 elif page == "Links Contactos":
     st.title("Links de Contactos")
-    df_links = read_query(
-        "SELECT * FROM links_contactos WHERE user_id = ?",
-        params=[st.session_state['user']['id']],
-    )
+    if st.session_state['user']['role'] == 'admin':
+        df_links = read_query("SELECT * FROM links_contactos")
+    else:
+        df_links = read_query(
+            "SELECT * FROM links_contactos WHERE user_id = ?",
+            params=[st.session_state['user']['id']],
+        )
     if df_links.empty:
         st.warning("No existen links.")
     else:
@@ -640,9 +652,19 @@ elif page == "Links Contactos":
                 )
                 new_marca = st.text_input("Marca", value=selected["marca"])
                 new_desc = st.text_area("Descripción", value=selected["descripcion"])
+                new_user_id = None
+                if st.session_state['user']['role'] == 'admin':
+                    users_df = read_query("SELECT id, username FROM users")
+                    user_options = users_df.apply(lambda r: f"{r['id']} - {r['username']}", axis=1)
+                    if selected['user_id'] is not None and selected['user_id'] in users_df['id'].values:
+                        default_idx = users_df.index[users_df['id'] == selected['user_id']][0]
+                    else:
+                        default_idx = 0
+                    user_selection = st.selectbox("Asignar a Usuario", user_options, index=default_idx)
+                    new_user_id = int(user_selection.split(" - ")[0])
                 submit_upd = st.form_submit_button("Actualizar Link")
             if submit_upd:
-                if update_link_record(link_id, new_link, new_fecha, new_marca, new_desc):
+                if update_link_record(link_id, new_link, new_fecha, new_marca, new_desc, new_user_id):
                     st.success("Link actualizado correctamente!")
                 else:
                     st.error("No se pudo actualizar el Link.")
@@ -660,10 +682,13 @@ elif page == "Links Contactos":
 # =============================================================================
 elif page == "Agregar Contactos":
     st.title("Agregar Contactos")
-    df_links = read_query(
-        "SELECT * FROM links_contactos WHERE user_id = ?",
-        params=[st.session_state['user']['id']],
-    )
+    if st.session_state['user']['role'] == 'admin':
+        df_links = read_query("SELECT * FROM links_contactos")
+    else:
+        df_links = read_query(
+            "SELECT * FROM links_contactos WHERE user_id = ?",
+            params=[st.session_state['user']['id']],
+        )
     if df_links.empty:
         st.warning("No existen links. Cree un Link Contactos primero.")
     else:
@@ -749,10 +774,13 @@ elif page == "Agregar Contactos":
 # =============================================================================
 elif page == "Ver Contactos & Exportar":
     st.title("Ver Contactos & Exportar")
-    df_links = read_query(
-        "SELECT * FROM links_contactos WHERE user_id = ?",
-        params=[st.session_state['user']['id']],
-    )
+    if st.session_state['user']['role'] == 'admin':
+        df_links = read_query("SELECT * FROM links_contactos")
+    else:
+        df_links = read_query(
+            "SELECT * FROM links_contactos WHERE user_id = ?",
+            params=[st.session_state['user']['id']],
+        )
     if df_links.empty:
         st.warning("No existen links. Cree un Link Contactos primero.")
     else:
@@ -957,10 +985,13 @@ elif page == "Editar":
     # --------------------------------------------------------------------------
     elif opcion_editar == "Editar Links":
         st.subheader("Editar Links")
-        df_links = read_query(
-            "SELECT * FROM links_contactos WHERE user_id = ?",
-            params=[st.session_state['user']['id']],
-        )
+        if st.session_state['user']['role'] == 'admin':
+            df_links = read_query("SELECT * FROM links_contactos")
+        else:
+            df_links = read_query(
+                "SELECT * FROM links_contactos WHERE user_id = ?",
+                params=[st.session_state['user']['id']],
+            )
         if df_links.empty:
             st.warning("No existen links. Cree uno primero.")
         else:
@@ -978,9 +1009,19 @@ elif page == "Editar":
                 new_fecha = st.date_input("Fecha de Creación", value=datetime.datetime.strptime(selected_link["fecha_creacion"], "%Y-%m-%d").date())
                 new_marca = st.text_input("Marca", value=selected_link["marca"])
                 new_descripcion = st.text_area("Descripción", value=selected_link["descripcion"])
+                new_user_id = None
+                if st.session_state['user']['role'] == 'admin':
+                    users_df = read_query("SELECT id, username FROM users")
+                    user_opts = users_df.apply(lambda r: f"{r['id']} - {r['username']}", axis=1)
+                    if selected_link['user_id'] is not None and selected_link['user_id'] in users_df['id'].values:
+                        default_idx = users_df.index[users_df['id'] == selected_link['user_id']][0]
+                    else:
+                        default_idx = 0
+                    user_sel = st.selectbox("Asignar a Usuario", user_opts, index=default_idx)
+                    new_user_id = int(user_sel.split(" - ")[0])
                 submit_button = st.form_submit_button("Actualizar Link")
             if submit_button:
-                if update_link_record(link_id, new_link_general, new_fecha, new_marca, new_descripcion):
+                if update_link_record(link_id, new_link_general, new_fecha, new_marca, new_descripcion, new_user_id):
                     st.success("Link actualizado correctamente!")
                     updated = read_query("SELECT * FROM links_contactos WHERE id = ?", params=[link_id])
                     st.write("Link actualizado:", updated)
