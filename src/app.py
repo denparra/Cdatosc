@@ -801,6 +801,15 @@ elif page == "Agregar Contactos":
                         ''', (link_auto_value, telefono, nombre.strip(), auto_modelo.strip(), precio, descripcion_contacto.strip(), link_id))
                         con.commit()
                     st.success("Contacto agregado exitosamente.")
+                    for k in [
+                        "link_auto",
+                        "telefono_input",
+                        "nombre_input",
+                        "auto_input",
+                        "precio_input",
+                        "descripcion_input",
+                    ]:
+                        st.session_state[k] = ""
                 except sqlite3.IntegrityError:
                     st.error("El link del auto ya existe. Ingrese otro enlace.")
 
