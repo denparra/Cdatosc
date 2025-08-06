@@ -823,7 +823,7 @@ elif page == "Agregar Contactos":
                         con.commit()
                     st.session_state["contacto_agregado"] = True
                     st.session_state["clear_contact_form"] = True
-                    st.experimental_rerun()
+                    st.rerun()
                 except sqlite3.IntegrityError:
                     st.error("El link del auto ya existe. Ingrese otro enlace.")
 
