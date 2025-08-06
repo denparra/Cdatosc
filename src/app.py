@@ -404,6 +404,9 @@ def update_contact(contact_id, link_auto, telefono, nombre, auto, precio, descri
             cursor = con.cursor()
             telefono = "".join(telefono.split())
             link_auto = "".join(link_auto.split())
+            # Aceptar precios con separadores de miles y espacios
+            if isinstance(precio, str):
+                precio = precio.replace(",", "").replace(" ", "").strip()
             cursor.execute(
                 """
                 UPDATE contactos
@@ -425,6 +428,20 @@ def update_contact(contact_id, link_auto, telefono, nombre, auto, precio, descri
     except Exception as e:
         st.error(f"Error al actualizar el contacto: {e}")
         return False
+
+
+def search_contacts(phone_query, user):
+    """Busca contactos filtrando por teléfono y rol del usuario."""
+    if user["role"] == "admin":
+        query = "SELECT * FROM contactos WHERE telefono LIKE ?"
+        params = [f"%{phone_query}%"]
+    else:
+        query = (
+            "SELECT c.* FROM contactos c JOIN links_contactos l ON c.id_link = l.id "
+            "WHERE l.user_id = ? AND c.telefono LIKE ?"
+        )
+        params = [user["id"], f"%{phone_query}%"]
+    return read_query(query, params=params)
 
 def delete_link_record(link_id):
     """Elimina un registro de la tabla links_contactos."""
@@ -949,12 +966,7 @@ elif page == "Editar":
         st.subheader("Editar Contactos por Teléfono")
         phone_query = st.text_input("Ingrese parte o el número completo del teléfono a buscar")
         if phone_query:
-            query = (
-                "SELECT c.* FROM contactos c JOIN links_contactos l ON c.id_link = l.id "
-                "WHERE l.user_id = ? AND c.telefono LIKE ?"
-            )
-            params = [st.session_state['user']['id'], f"%{phone_query}%"]
-            df_search = read_query(query, params=params)
+            df_search = search_contacts(phone_query, st.session_state['user'])
             if df_search.empty:
                 st.warning("No se encontraron contactos para ese número.")
             else:
