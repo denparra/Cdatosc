@@ -717,6 +717,8 @@ elif page == "Links Contactos":
 # =============================================================================
 elif page == "Agregar Contactos":
     st.title("Agregar Contactos")
+    if st.session_state.pop("contacto_agregado", False):
+        st.success("Contacto agregado exitosamente.")
     if st.session_state['user']['role'] == 'admin':
         df_links = read_query("SELECT * FROM links_contactos")
     else:
@@ -738,7 +740,7 @@ elif page == "Agregar Contactos":
         st.markdown(f"**Descripción:** {selected_link['descripcion']}")
         link_id = selected_link["id"]
 
-        if st.button("Borrar Campos"):
+        def clear_contact_form_fields():
             for k in [
                 "link_auto",
                 "telefono_input",
@@ -747,7 +749,15 @@ elif page == "Agregar Contactos":
                 "precio_input",
                 "descripcion_input",
             ]:
-                st.session_state[k] = ""
+                if k in st.session_state:
+                    st.session_state[k] = ""
+
+        if st.session_state.get("clear_contact_form", False):
+            clear_contact_form_fields()
+            st.session_state["clear_contact_form"] = False
+
+        if st.button("Borrar Campos"):
+            clear_contact_form_fields()
 
         st.text_input("Link del Auto", key="link_auto")
 
@@ -795,21 +805,25 @@ elif page == "Agregar Contactos":
                 try:
                     with get_connection() as con:
                         cursor = con.cursor()
-                        cursor.execute('''
+                        cursor.execute(
+                            '''
                             INSERT INTO contactos (link_auto, telefono, nombre, auto, precio, descripcion, id_link)
                             VALUES (?, ?, ?, ?, ?, ?, ?)
-                        ''', (link_auto_value, telefono, nombre.strip(), auto_modelo.strip(), precio, descripcion_contacto.strip(), link_id))
+                            ''',
+                            (
+                                link_auto_value,
+                                telefono,
+                                nombre.strip(),
+                                auto_modelo.strip(),
+                                precio,
+                                descripcion_contacto.strip(),
+                                link_id,
+                            ),
+                        )
                         con.commit()
-                    st.success("Contacto agregado exitosamente.")
-                    for k in [
-                        "link_auto",
-                        "telefono_input",
-                        "nombre_input",
-                        "auto_input",
-                        "precio_input",
-                        "descripcion_input",
-                    ]:
-                        st.session_state[k] = ""
+                    st.session_state["contacto_agregado"] = True
+                    st.session_state["clear_contact_form"] = True
+                    st.experimental_rerun()
                 except sqlite3.IntegrityError:
                     st.error("El link del auto ya existe. Ingrese otro enlace.")
 
