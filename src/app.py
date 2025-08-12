@@ -472,6 +472,48 @@ def delete_contact(contact_id):
         st.error(f"Error al eliminar el contacto: {e}")
         return False
 
+
+def sanitize_existing_links(link_id: int) -> dict:
+    """Normaliza enlaces de contactos asociados a ``link_id`` y elimina duplicados.
+
+    Parameters
+    ----------
+    link_id: int
+        Identificador de la entrada en ``links_contactos`` cuyos contactos se procesarán.
+
+    Returns
+    -------
+    dict
+        Diccionario con las claves ``sanitized`` y ``deleted`` que indican la cantidad
+        de enlaces actualizados y de registros eliminados respectivamente.
+    """
+    sanitized, deleted = 0, 0
+    with get_connection() as con:
+        cur = con.cursor()
+        cur.execute(
+            "SELECT id, link_auto FROM contactos WHERE id_link = ?", (link_id,)
+        )
+        rows = cur.fetchall()
+        for contact_id, link in rows:
+            normalized = sanitize_vehicle_link(link)
+            cur.execute(
+                "SELECT id FROM contactos WHERE link_auto = ? AND id != ?",
+                (normalized, contact_id),
+            )
+            existing = cur.fetchone()
+            if existing:
+                cur.execute("DELETE FROM contactos WHERE id = ?", (contact_id,))
+                deleted += 1
+            else:
+                if normalized != link:
+                    cur.execute(
+                        "UPDATE contactos SET link_auto = ? WHERE id = ?",
+                        (normalized, contact_id),
+                    )
+                    sanitized += 1
+        con.commit()
+    return {"sanitized": sanitized, "deleted": deleted}
+
 # =============================================================================
 # FUNCIONES PARA MANEJO DE MENSAJES
 # =============================================================================
@@ -579,6 +621,7 @@ else:
     menu_options = (
         "Crear Link Contactos",
         "Links Contactos",
+        "Sanitizar Links",
         "Agregar Contactos",
         "Ver Contactos & Exportar",
         "Mensajes",
@@ -717,6 +760,33 @@ elif page == "Links Contactos":
                     st.success("Link eliminado correctamente!")
                 else:
                     st.error("Error al eliminar el link.")
+
+# =============================================================================
+# PÁGINA: SANITIZAR LINKS
+# =============================================================================
+elif page == "Sanitizar Links":
+    st.title("Sanitizar Links")
+    if st.session_state['user']['role'] == 'admin':
+        df_links = read_query("SELECT id, marca, descripcion FROM links_contactos")
+    else:
+        df_links = read_query(
+            "SELECT id, marca, descripcion FROM links_contactos WHERE user_id = ?",
+            params=[st.session_state['user']['id']],
+        )
+    if df_links.empty:
+        st.warning("No existen links.")
+    else:
+        df_links['display'] = df_links.apply(
+            lambda row: f"{row['id']} - {row['marca']} - {row['descripcion']}",
+            axis=1,
+        )
+        seleccionado = st.selectbox("Seleccione el Link a sanitizar", df_links['display'])
+        link_id = int(seleccionado.split(" - ")[0])
+        if st.button("Sanitizar"):
+            result = sanitize_existing_links(link_id)
+            st.success(
+                f"Links sanitizados: {result['sanitized']}. Eliminados: {result['deleted']}"
+            )
 
 # =============================================================================
 # PÁGINA: AGREGAR CONTACTOS
