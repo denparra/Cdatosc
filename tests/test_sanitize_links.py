@@ -75,3 +75,21 @@ def test_sanitize_existing_links_removes_duplicates():
         cur.execute("SELECT link_auto FROM contactos")
         rows = [r[0] for r in cur.fetchall()]
         assert rows == ["https://example.com/car"]
+
+
+def test_sanitize_all_links_processes_entire_table():
+    app = import_app()
+    conn = setup_db()
+    conn.execute(
+        "INSERT INTO contactos (link_auto, telefono, nombre, auto, precio, descripcion, id_link) VALUES (?,?,?,?,?,?,?)",
+        ("https://example.com/othercar?x=1", "333", "n3", "auto3", 300, "d3", 1),
+    )
+    conn.commit()
+    with patch.object(app, "get_connection", return_value=conn):
+        result = app.sanitize_all_links()
+        assert result["sanitized"] == 2
+        assert result["deleted"] == 1
+        cur = conn.cursor()
+        cur.execute("SELECT link_auto FROM contactos ORDER BY id")
+        rows = [r[0] for r in cur.fetchall()]
+        assert rows == ["https://example.com/car", "https://example.com/othercar"]

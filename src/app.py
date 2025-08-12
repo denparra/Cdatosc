@@ -514,6 +514,39 @@ def sanitize_existing_links(link_id: int) -> dict:
         con.commit()
     return {"sanitized": sanitized, "deleted": deleted}
 
+
+def sanitize_all_links() -> dict:
+    """Normaliza todos los enlaces de vehículos y elimina duplicados.
+
+    Returns
+    -------
+    dict
+        Diccionario con las claves ``sanitized`` y ``deleted`` que indican la
+        cantidad de enlaces actualizados y de registros eliminados
+        respectivamente en toda la tabla ``contactos``.
+    """
+    sanitized, deleted = 0, 0
+    with get_connection() as con:
+        cur = con.cursor()
+        cur.execute("SELECT id, link_auto FROM contactos")
+        rows = cur.fetchall()
+        seen = {}
+        for contact_id, link in rows:
+            normalized = sanitize_vehicle_link(link)
+            if normalized in seen:
+                cur.execute("DELETE FROM contactos WHERE id = ?", (contact_id,))
+                deleted += 1
+            else:
+                if normalized != link:
+                    cur.execute(
+                        "UPDATE contactos SET link_auto = ? WHERE id = ?",
+                        (normalized, contact_id),
+                    )
+                    sanitized += 1
+                seen[normalized] = contact_id
+        con.commit()
+    return {"sanitized": sanitized, "deleted": deleted}
+
 # =============================================================================
 # FUNCIONES PARA MANEJO DE MENSAJES
 # =============================================================================
@@ -766,24 +799,11 @@ elif page == "Links Contactos":
 # =============================================================================
 elif page == "Sanitizar Links":
     st.title("Sanitizar Links")
-    if st.session_state['user']['role'] == 'admin':
-        df_links = read_query("SELECT id, marca, descripcion FROM links_contactos")
+    if st.session_state['user']['role'] != 'admin':
+        st.warning("Solo el administrador puede sanitizar enlaces.")
     else:
-        df_links = read_query(
-            "SELECT id, marca, descripcion FROM links_contactos WHERE user_id = ?",
-            params=[st.session_state['user']['id']],
-        )
-    if df_links.empty:
-        st.warning("No existen links.")
-    else:
-        df_links['display'] = df_links.apply(
-            lambda row: f"{row['id']} - {row['marca']} - {row['descripcion']}",
-            axis=1,
-        )
-        seleccionado = st.selectbox("Seleccione el Link a sanitizar", df_links['display'])
-        link_id = int(seleccionado.split(" - ")[0])
-        if st.button("Sanitizar"):
-            result = sanitize_existing_links(link_id)
+        if st.button("Sanitizar toda la base de datos"):
+            result = sanitize_all_links()
             st.success(
                 f"Links sanitizados: {result['sanitized']}. Eliminados: {result['deleted']}"
             )
