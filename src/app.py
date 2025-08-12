@@ -19,6 +19,12 @@ def resource_path(relative_path):
         base_path = os.path.abspath(".")
     return os.path.join(base_path, relative_path)
 
+
+def sanitize_vehicle_link(url: str) -> str:
+    """Normalize a vehicle URL by removing query strings and fragments."""
+    parsed = urllib.parse.urlparse("".join(url.split()))
+    return f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+
 # =============================================================================
 # CONFIGURACIÓN BÁSICA Y ESTILOS
 # =============================================================================
@@ -403,7 +409,7 @@ def update_contact(contact_id, link_auto, telefono, nombre, auto, precio, descri
         with get_connection() as con:
             cursor = con.cursor()
             telefono = "".join(telefono.split())
-            link_auto = "".join(link_auto.split())
+            link_auto = sanitize_vehicle_link(link_auto)
             # Aceptar precios con separadores de miles y espacios
             if isinstance(precio, str):
                 precio = precio.replace(",", "").replace(" ", "").strip()
@@ -761,8 +767,9 @@ elif page == "Agregar Contactos":
 
         st.text_input("Link del Auto", key="link_auto")
 
-        # Después de obtener el valor del link verifica si existe y ejecuta el scraping
-        link_auto_value = "".join(st.session_state.get("link_auto", "").split())
+        # Después de obtener el valor del link, normalizarlo y verificar duplicados
+        raw_link_auto = st.session_state.get("link_auto", "")
+        link_auto_value = sanitize_vehicle_link(raw_link_auto) if raw_link_auto else ""
         link_exists = False
         scraped_data = {}
         if link_auto_value:
