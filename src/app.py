@@ -1119,14 +1119,11 @@ elif page == "CWS Chat WhatsApp":
                             plantillas, row.to_dict()
                         )
                         msg_js = json.dumps(msg)
+                        link_js = json.dumps(link)
                         with cols[4]:
                             st.markdown(
                                 f"""
-<button onclick="
-    const msg = {msg_js};
-    document.getElementById('cws-msg').value = msg;
-    window.open('{link}', '_blank');
-">Enviar_WS</button>
+<button onclick='const msg = {msg_js}; document.getElementById("cws-msg").value = msg; window.open({link_js}, "_blank");'>Enviar_WS</button>
 """,
                                 unsafe_allow_html=True,
                             )
