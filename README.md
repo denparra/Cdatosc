@@ -33,6 +33,15 @@ python run.py
 Para instrucciones detalladas, consulta
 [docs/README.md](docs/README.md).
 
+## CWS Chat WhatsApp
+
+La ventana **CWS Chat WhatsApp** permite seleccionar un *Link Contactos* y
+varias plantillas de mensaje para cada contacto. La tabla resultante muestra
+auto, precio, teléfono y un enlace al anuncio. Cada fila incluye un botón
+**Enviar_WS** que abre una conversación en WhatsApp con un mensaje
+personalizado y copia el texto en un cuadro HTML que dispone de un botón
+**Copiar**.
+
 ## Pruebas
 
 ```bash
