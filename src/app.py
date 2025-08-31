@@ -11,7 +11,6 @@ import os
 import sys
 import hashlib
 import random
-import json
 
 
 def resource_path(relative_path):
@@ -58,6 +57,8 @@ st.markdown(disable_enter_js, unsafe_allow_html=True)
 
 if 'user' not in st.session_state:
     st.session_state['user'] = None
+if 'cws_msg' not in st.session_state:
+    st.session_state['cws_msg'] = ''
 
 # =============================================================================
 # CONEXIÓN A LA BASE DE DATOS Y CREACIÓN DE TABLAS
@@ -1118,21 +1119,16 @@ elif page == "CWS Chat WhatsApp":
                         link, msg = build_whatsapp_link(
                             plantillas, row.to_dict()
                         )
-                        msg_js = json.dumps(msg)
-                        link_js = json.dumps(link)
-                        with cols[4]:
-                            st.markdown(
-                                f"""
-<button onclick='const msg = {msg_js}; document.getElementById("cws-msg").value = msg; window.open({link_js}, "_blank");'>Enviar_WS</button>
-""",
-                                unsafe_allow_html=True,
-                            )
+                        if not st.session_state['cws_msg']:
+                            st.session_state['cws_msg'] = msg
+                        cols[4].markdown(
+                            f"[Link_WS]({link})",
+                            unsafe_allow_html=True,
+                        )
+                    st.text_area("", key="cws_msg")
                     st.markdown(
                         """
-<div>
-  <textarea id='cws-msg' style='width:100%;height:100px;'></textarea>
-  <button onclick="navigator.clipboard.writeText(document.getElementById('cws-msg').value)">Copiar</button>
-</div>
+<button onclick=\"navigator.clipboard.writeText(document.getElementById('cws_msg').value)\">Copiar</button>
 """,
                         unsafe_allow_html=True,
                     )
