@@ -12,6 +12,8 @@ def import_app():
         sys.modules,
         {
             "streamlit": MagicMock(),
+            "streamlit.components": MagicMock(),
+            "streamlit.components.v1": MagicMock(),
             "requests": MagicMock(),
             "bs4": MagicMock(),
             "pandas": MagicMock(),

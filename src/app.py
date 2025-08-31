@@ -10,6 +10,9 @@ import urllib.parse
 import os
 import sys
 import hashlib
+import random
+import json
+import streamlit.components.v1 as components
 
 
 def resource_path(relative_path):
@@ -605,6 +608,28 @@ def apply_template(template, contacto):
     return re.sub(r"{(.*?)}", repl, template)
 
 
+def build_whatsapp_link(plantillas, contacto):
+    """Genera un enlace de WhatsApp rotando las plantillas disponibles.
+
+    Parameters
+    ----------
+    plantillas : Sequence[str]
+        Lista de plantillas de mensaje.
+    contacto : Mapping
+        Diccionario con los datos del contacto.
+
+    Returns
+    -------
+    tuple[str, str]
+        Enlace completo de WhatsApp y el mensaje ya personalizado.
+    """
+    template = random.choice(list(plantillas))
+    mensaje = apply_template(template, contacto)
+    telefono = "".join(str(contacto.get("telefono", "")).split())
+    link = f"https://wa.me/56{telefono}?text=" + urllib.parse.quote(mensaje)
+    return link, mensaje
+
+
 def generate_html(df, message_template):
     """Genera un archivo HTML con enlaces de WhatsApp.
 
@@ -657,6 +682,7 @@ else:
         "Sanitizar Links",
         "Agregar Contactos",
         "Ver Contactos & Exportar",
+        "CWS Chat WhatsApp",
         "Mensajes",
         "Editar",
     )
@@ -1027,6 +1053,95 @@ elif page == "Ver Contactos & Exportar":
                 con.commit()
         else:
             st.dataframe(df_contactos)
+
+# =============================================================================
+# PÁGINA: CWS CHAT WHATSAPP
+# =============================================================================
+elif page == "CWS Chat WhatsApp":
+    st.title("CWS Chat WhatsApp")
+    if st.session_state['user']['role'] == 'admin':
+        df_links = read_query("SELECT * FROM links_contactos")
+    else:
+        df_links = read_query(
+            "SELECT * FROM links_contactos WHERE user_id = ?",
+            params=[st.session_state['user']['id']],
+        )
+    if df_links.empty:
+        st.warning("No existen links. Cree un Link Contactos primero.")
+    else:
+        df_links['display'] = df_links.apply(
+            lambda row: f"{row['marca']} - {row['descripcion']}", axis=1
+        )
+        link_selected = st.selectbox(
+            "Selecciona el Link Contactos", df_links['display']
+        )
+        selected_link = df_links[df_links['display'] == link_selected].iloc[0]
+        link_id = selected_link['id']
+
+        mensajes_df = read_query(
+            "SELECT * FROM mensajes WHERE user_id = ?",
+            params=[st.session_state['user']['id']],
+        )
+        if mensajes_df.empty:
+            st.warning("No existen mensajes. Agregue uno en la sección Mensajes.")
+        else:
+            mensajes_df['display'] = mensajes_df.apply(
+                lambda r: f"{r['id']} - {r['descripcion'][:30]}", axis=1
+            )
+            msg_disp = st.multiselect(
+                "Selecciona las plantillas", mensajes_df['display']
+            )
+            if msg_disp:
+                plantillas = mensajes_df[
+                    mensajes_df['display'].isin(msg_disp)
+                ]['descripcion'].tolist()
+                df_contactos = read_query(
+                    "SELECT * FROM contactos WHERE id_link = ?",
+                    params=[link_id],
+                )
+                if df_contactos.empty:
+                    st.info("No hay contactos para este link.")
+                else:
+                    header = st.columns([3, 1, 2, 2, 1])
+                    header[0].write("Auto")
+                    header[1].write("Precio")
+                    header[2].write("Teléfono")
+                    header[3].write("Link_CA")
+                    header[4].write("")
+                    for _, row in df_contactos.iterrows():
+                        cols = st.columns([3, 1, 2, 2, 1])
+                        cols[0].write(row['auto'])
+                        cols[1].write(row['precio'])
+                        cols[2].write(row['telefono'])
+                        cols[3].markdown(
+                            f"[Link_CA]({row['link_auto']})", unsafe_allow_html=True
+                        )
+                        link, msg = build_whatsapp_link(
+                            plantillas, row.to_dict()
+                        )
+                        msg_js = json.dumps(msg)
+                        with cols[4]:
+                            components.html(
+                                f"""
+<button onclick="
+    const msg = {msg_js};
+    document.getElementById('cws-msg').value = msg;
+    window.open('{link}', '_blank');
+">Enviar_WS</button>
+""",
+                                height=40,
+                            )
+                    components.html(
+                        """
+<div>
+  <textarea id='cws-msg' style='width:100%;height:100px;'></textarea>
+  <button onclick="navigator.clipboard.writeText(document.getElementById('cws-msg').value)">Copiar</button>
+</div>
+""",
+                        height=150,
+                    )
+            else:
+                st.info("Seleccione al menos una plantilla.")
 
 # =============================================================================
 # PÁGINA: MENSAJES
