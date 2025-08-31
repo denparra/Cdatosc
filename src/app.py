@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import sqlite3
 import pandas as pd
 import datetime
@@ -630,6 +631,16 @@ def build_whatsapp_link(plantillas, contacto):
     return link, mensaje
 
 
+def open_whatsapp(link, msg):
+    """Actualiza el mensaje actual y abre el enlace de WhatsApp en una nueva pestaña."""
+    st.session_state['cws_msg'] = msg
+    components.html(
+        f"<script>window.open('{link}', '_blank');</script>",
+        height=0,
+        width=0,
+    )
+
+
 def generate_html(df, message_template):
     """Genera un archivo HTML con enlaces de WhatsApp.
 
@@ -697,7 +708,34 @@ if st.session_state['user']:
     if st.sidebar.button("Cerrar Sesión"):
         st.session_state.user = None
         st.session_state.page = "Login"
+        st.session_state['cws_msg'] = ''
         st.rerun()
+    if st.session_state.get('cws_msg'):
+        mensaje = st.session_state['cws_msg']
+        html_mensaje = f"""
+<div style="border:1px solid #ddd; padding:10px; background-color:#3a1919; font-family: monospace; margin-top:10px; position: relative; height: 360px; color: white;">
+
+  <!-- Título del bloque -->
+  <h4 style="margin-bottom:5px;">Mensaje Generado</h4>
+
+  <!-- Área scrollable para el mensaje largo -->
+  <pre id="mensaje" style="white-space: pre-wrap; word-wrap: break-word; max-height: 280px; overflow-y: auto;">{mensaje}</pre>
+
+  <!-- Botón fijo al fondo del contenedor -->
+  <button onclick="(function() {{
+      var text = document.getElementById('mensaje').innerText;
+      navigator.clipboard.writeText(text).then(function() {{
+          alert('Mensaje copiado.');
+      }}).catch(function(err) {{
+          alert('Error al copiar: ' + err);
+      }});
+  }})()"
+  style="position: absolute; bottom: 10px; left: 10px; right: 10px; width: calc(100% - 20px);">Copiar mensaje</button>
+
+</div>
+"""
+        with st.sidebar:
+            components.html(html_mensaje, height=400)
 
 # =============================================================================
 # PÁGINA: LOGIN
@@ -1119,19 +1157,12 @@ elif page == "CWS Chat WhatsApp":
                         link, msg = build_whatsapp_link(
                             plantillas, row.to_dict()
                         )
-                        if not st.session_state['cws_msg']:
-                            st.session_state['cws_msg'] = msg
-                        cols[4].markdown(
-                            f"[Link_WS]({link})",
-                            unsafe_allow_html=True,
+                        cols[4].button(
+                            "Link_WS",
+                            key=f"ws_{row['id']}",
+                            on_click=open_whatsapp,
+                            args=(link, msg),
                         )
-                    st.text_area("", key="cws_msg")
-                    st.markdown(
-                        """
-<button onclick=\"navigator.clipboard.writeText(document.getElementById('cws_msg').value)\">Copiar</button>
-""",
-                        unsafe_allow_html=True,
-                    )
             else:
                 st.info("Seleccione al menos una plantilla.")
 
