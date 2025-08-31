@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import sqlite3
 import pandas as pd
 import datetime
@@ -1119,16 +1120,17 @@ elif page == "CWS Chat WhatsApp":
                             plantillas, row.to_dict()
                         )
                         msg_js = json.dumps(msg)
-                        with cols[4]:
-                            st.markdown(
+                        link_js = json.dumps(link)
+                        if cols[4].button("Enviar_WS", key=f"ws_{row['id']}"):
+                            components.html(
                                 f"""
-<button onclick="
-    const msg = {msg_js};
-    document.getElementById('cws-msg').value = msg;
-    window.open('{link}', '_blank');
-">Enviar_WS</button>
-""",
-                                unsafe_allow_html=True,
+                                <script>
+                                const msg = {msg_js};
+                                parent.document.getElementById('cws-msg').value = msg;
+                                parent.window.open({link_js}, '_blank');
+                                </script>
+                                """,
+                                height=0,
                             )
                     st.markdown(
                         """
