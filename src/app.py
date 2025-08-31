@@ -12,7 +12,6 @@ import sys
 import hashlib
 import random
 import json
-import streamlit.components.v1 as components
 
 
 def resource_path(relative_path):
@@ -1121,7 +1120,7 @@ elif page == "CWS Chat WhatsApp":
                         )
                         msg_js = json.dumps(msg)
                         with cols[4]:
-                            components.html(
+                            st.markdown(
                                 f"""
 <button onclick="
     const msg = {msg_js};
@@ -1129,16 +1128,16 @@ elif page == "CWS Chat WhatsApp":
     window.open('{link}', '_blank');
 ">Enviar_WS</button>
 """,
-                                height=40,
+                                unsafe_allow_html=True,
                             )
-                    components.html(
+                    st.markdown(
                         """
 <div>
   <textarea id='cws-msg' style='width:100%;height:100px;'></textarea>
   <button onclick="navigator.clipboard.writeText(document.getElementById('cws-msg').value)">Copiar</button>
 </div>
 """,
-                        height=150,
+                        unsafe_allow_html=True,
                     )
             else:
                 st.info("Seleccione al menos una plantilla.")
