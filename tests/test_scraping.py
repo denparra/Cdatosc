@@ -8,6 +8,8 @@ from bs4 import BeautifulSoup
 
 # Mock unavailable modules so src.app can be imported
 sys.modules.setdefault("streamlit", MagicMock())
+sys.modules.setdefault("streamlit.components", MagicMock())
+sys.modules.setdefault("streamlit.components.v1", MagicMock())
 sys.modules.setdefault("pandas", MagicMock())
 sys.modules.setdefault("requests", MagicMock())
 
@@ -34,7 +36,10 @@ def test_scrape_vehicle_details(tmp_path):
         status_code = 200
         content = html.encode("utf-8")
 
-    with patch.object(src.app.requests, "get", return_value=MockResponse()):
+    mock_session = MagicMock()
+    mock_session.get.return_value = MockResponse()
+    with patch.object(src.app.requests, "Session", return_value=mock_session), \
+         patch.object(src.app, "BeautifulSoup", BeautifulSoup):
         data = src.app.scrape_vehicle_details("http://example.com")
 
     assert data["nombre"] == "2021 TestCar"

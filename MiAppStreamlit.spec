@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_all
 
-datas = [('app.py', '.')]
+datas = [('src', 'src'), ('data', 'data')]
 binaries = []
 hiddenimports = []
 tmp_ret = collect_all('streamlit')
@@ -29,7 +29,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='run',
+    name='MiAppStreamlit',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
