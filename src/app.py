@@ -26,9 +26,14 @@ def resource_path(relative_path):
 
 
 def sanitize_vehicle_link(url: str) -> str:
-    """Normalize a vehicle URL by removing query strings and fragments."""
+    """Normalize a vehicle URL to a canonical format used for uniqueness checks."""
     parsed = urllib.parse.urlparse("".join(url.split()))
-    return f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+    scheme = (parsed.scheme or "https").lower()
+    netloc = parsed.netloc.lower()
+    path = parsed.path or ""
+    if path and path != "/":
+        path = path.rstrip("/") + "/"
+    return f"{scheme}://{netloc}{path}"
 
 
 def normalize_phone(value):
@@ -41,22 +46,257 @@ def normalize_phone(value):
     return digits
 
 
+def decode_link_id(raw_link_id: Any) -> int | None:
+    """Decode stored link ids from int-like values or legacy little-endian blobs."""
+    if raw_link_id is None:
+        return None
+    if isinstance(raw_link_id, int):
+        return raw_link_id
+    if isinstance(raw_link_id, bytes):
+        if not raw_link_id:
+            return None
+        return int.from_bytes(raw_link_id, byteorder="little", signed=False)
+    try:
+        return int(raw_link_id)
+    except (TypeError, ValueError):
+        return None
+
+
 # =============================================================================
 # CONFIGURACIÓN BÁSICA Y ESTILOS
 # =============================================================================
 st.markdown("""
     <style>
-    :root {
+    :root,
+    [data-theme="light"] {
         --primary-color: #2563eb;
         --primary-hover: #1d4ed8;
+
+        --surface-0: #ffffff;
+        --surface-1: #f8fafc;
+        --surface-2: #eef2f7;
+        --text-strong: #0f172a;
+        --text-muted: #334155;
+        --border-subtle: #cbd5e1;
+
         --bg-soft: #f4f7ff;
-        --card-bg: #ffffff;
+        --card-bg: var(--surface-0);
         --border-color: #dfe5f1;
+
+        --color-success-bg: #166534;
+        --color-success-bg-soft: #ecfdf3;
+        --color-success-text: #14532d;
+        --color-success-border: #22c55e;
+
+        --color-warning-bg: #b45309;
+        --color-warning-bg-soft: #fff7ed;
+        --color-warning-text: #7c2d12;
+        --color-warning-border: #f59e0b;
+
+        --color-error-bg: #b91c1c;
+        --color-error-bg-soft: #fef2f2;
+        --color-error-text: #7f1d1d;
+        --color-error-border: #ef4444;
+
+        --color-info-bg: #1d4ed8;
+        --color-info-bg-soft: #eff6ff;
+        --color-info-text: #1e3a8a;
+        --color-info-border: #3b82f6;
+
+        --color-neutral-bg: #334155;
+        --color-neutral-bg-soft: #f8fafc;
+        --color-neutral-text: #1f2937;
+        --color-neutral-border: #94a3b8;
+    }
+
+    [data-theme="dark"] {
+        --surface-0: #0b1220;
+        --surface-1: #111a2e;
+        --surface-2: #1b263d;
+        --text-strong: #e2e8f0;
+        --text-muted: #cbd5e1;
+        --border-subtle: #334155;
+
+        --bg-soft: #0f172a;
+        --card-bg: #111a2e;
+        --border-color: #334155;
+
+        --color-success-bg: #22c55e;
+        --color-success-bg-soft: #052e1f;
+        --color-success-text: #86efac;
+        --color-success-border: #15803d;
+
+        --color-warning-bg: #f59e0b;
+        --color-warning-bg-soft: #3a2605;
+        --color-warning-text: #fcd34d;
+        --color-warning-border: #b45309;
+
+        --color-error-bg: #ef4444;
+        --color-error-bg-soft: #3b0a0a;
+        --color-error-text: #fca5a5;
+        --color-error-border: #b91c1c;
+
+        --color-info-bg: #60a5fa;
+        --color-info-bg-soft: #0b2347;
+        --color-info-text: #bfdbfe;
+        --color-info-border: #2563eb;
+
+        --color-neutral-bg: #94a3b8;
+        --color-neutral-bg-soft: #111827;
+        --color-neutral-text: #e2e8f0;
+        --color-neutral-border: #475569;
+    }
+
+    @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) {
+            --surface-0: #0b1220;
+            --surface-1: #111a2e;
+            --surface-2: #1b263d;
+            --text-strong: #e2e8f0;
+            --text-muted: #cbd5e1;
+            --border-subtle: #334155;
+
+            --bg-soft: #0f172a;
+            --card-bg: #111a2e;
+            --border-color: #334155;
+
+            --color-success-bg: #22c55e;
+            --color-success-bg-soft: #052e1f;
+            --color-success-text: #86efac;
+            --color-success-border: #15803d;
+
+            --color-warning-bg: #f59e0b;
+            --color-warning-bg-soft: #3a2605;
+            --color-warning-text: #fcd34d;
+            --color-warning-border: #b45309;
+
+            --color-error-bg: #ef4444;
+            --color-error-bg-soft: #3b0a0a;
+            --color-error-text: #fca5a5;
+            --color-error-border: #b91c1c;
+
+            --color-info-bg: #60a5fa;
+            --color-info-bg-soft: #0b2347;
+            --color-info-text: #bfdbfe;
+            --color-info-border: #2563eb;
+
+            --color-neutral-bg: #94a3b8;
+            --color-neutral-bg-soft: #111827;
+            --color-neutral-text: #e2e8f0;
+            --color-neutral-border: #475569;
+        }
+    }
+
+    div[data-testid="stAlert"],
+    div[data-baseweb="notification"] {
+        background: var(--color-neutral-bg-soft) !important;
+        border: 1px solid var(--color-neutral-border) !important;
+        border-radius: 12px !important;
+        color: var(--color-neutral-text) !important;
+        box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+    }
+
+    div[data-testid="stAlert"] p,
+    div[data-testid="stAlert"] span,
+    div[data-testid="stAlert"] label,
+    div[data-testid="stAlert"] strong,
+    div[data-baseweb="notification"] p,
+    div[data-baseweb="notification"] span,
+    div[data-baseweb="notification"] label,
+    div[data-baseweb="notification"] strong {
+        color: inherit !important;
+    }
+    div[data-testid="stAlert"] a,
+    div[data-baseweb="notification"] a {
+        color: inherit !important;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+    }
+
+    div[data-testid="stAlert"][kind="success"],
+    div[data-testid="stAlert"]:has(svg[aria-label="success icon"]),
+    div[data-baseweb="notification"][kind="success"] {
+        background: var(--color-success-bg-soft) !important;
+        border-color: var(--color-success-border) !important;
+        color: var(--color-success-text) !important;
+    }
+
+    div[data-testid="stAlert"][kind="warning"],
+    div[data-testid="stAlert"]:has(svg[aria-label="warning icon"]),
+    div[data-baseweb="notification"][kind="warning"] {
+        background: var(--color-warning-bg-soft) !important;
+        border-color: var(--color-warning-border) !important;
+        color: var(--color-warning-text) !important;
+    }
+
+    div[data-testid="stAlert"][kind="error"],
+    div[data-testid="stAlert"]:has(svg[aria-label="error icon"]),
+    div[data-baseweb="notification"][kind="error"] {
+        background: var(--color-error-bg-soft) !important;
+        border-color: var(--color-error-border) !important;
+        color: var(--color-error-text) !important;
+    }
+
+    div[data-testid="stAlert"][kind="info"],
+    div[data-testid="stAlert"]:has(svg[aria-label="info icon"]),
+    div[data-baseweb="notification"][kind="info"] {
+        background: var(--color-info-bg-soft) !important;
+        border-color: var(--color-info-border) !important;
+        color: var(--color-info-text) !important;
+    }
+
+    .alert {
+        border: 1px solid;
+        border-radius: 12px;
+        padding: 0.75rem 0.9rem;
+        font-size: 0.95rem;
+        line-height: 1.4;
+    }
+
+    .alert-success {
+        background: var(--color-success-bg-soft);
+        color: var(--color-success-text);
+        border-color: var(--color-success-border);
+    }
+
+    .alert-warning {
+        background: var(--color-warning-bg-soft);
+        color: var(--color-warning-text);
+        border-color: var(--color-warning-border);
+    }
+
+    .alert-error {
+        background: var(--color-error-bg-soft);
+        color: var(--color-error-text);
+        border-color: var(--color-error-border);
+    }
+
+    .alert-info {
+        background: var(--color-info-bg-soft);
+        color: var(--color-info-text);
+        border-color: var(--color-info-border);
+    }
+
+    .badge {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        border: 1px solid;
+        padding: 0.18rem 0.55rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .badge-error {
+        background: var(--color-error-bg-soft);
+        color: var(--color-error-text);
+        border-color: var(--color-error-border);
     }
     .stApp {
         max-width: 1200px;
         margin: auto;
         background: var(--bg-soft);
+        color: var(--text-strong);
     }
     div[data-testid="stAppViewContainer"] > .main {
         padding: 2rem 2.5rem 3rem;
@@ -104,7 +344,7 @@ st.markdown("""
     .stButton button,
     .stDownloadButton button {
         background: var(--primary-color);
-        color: #fff;
+        color: #ffffff;
         border-radius: 999px;
         padding: 0.55rem 1.6rem;
         border: none;
@@ -118,6 +358,20 @@ st.markdown("""
         box-shadow: 0 10px 22px rgba(37,99,235,0.35);
         transform: translateY(-1px);
     }
+    .stButton button[kind="secondary"],
+    .stDownloadButton button[kind="secondary"],
+    button[data-testid="baseButton-secondary"] {
+        background: var(--surface-1) !important;
+        color: var(--text-strong) !important;
+        border: 1px solid var(--border-subtle) !important;
+        box-shadow: none !important;
+    }
+    .stButton button[kind="secondary"]:hover,
+    .stDownloadButton button[kind="secondary"]:hover,
+    button[data-testid="baseButton-secondary"]:hover {
+        background: var(--surface-2) !important;
+        border-color: var(--color-info-border) !important;
+    }
     div[data-testid="stForm"] {
         background: var(--card-bg);
         border: 1px solid var(--border-color);
@@ -128,16 +382,23 @@ st.markdown("""
     }
     div[data-testid="stForm"] label {
         font-weight: 600;
-        color: #1f2937 !important;
+        color: var(--text-strong) !important;
     }
     input, textarea, select {
         font-size: 1.05em;
         border-radius: 10px !important;
-        border: 1px solid #cbd5f5 !important;
+        border: 1px solid var(--border-subtle) !important;
+        background: var(--surface-0) !important;
+        color: var(--text-strong) !important;
+    }
+    input::placeholder,
+    textarea::placeholder {
+        color: var(--text-muted) !important;
+        opacity: 0.78;
     }
     input:focus, textarea:focus, select:focus {
-        border-color: var(--primary-color) !important;
-        box-shadow: 0 0 0 1px rgba(37,99,235,0.35) !important;
+        border-color: var(--color-info-border) !important;
+        box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-info-border) 35%, transparent) !important;
     }
     .sidebar-card {
         border-radius: 14px;
@@ -330,8 +591,12 @@ st.markdown("""
         transform: translateY(-1px);
         box-shadow: 0 8px 18px rgba(14,165,233,0.25);
     }
-    button:focus-visible, .sidebar-message-card__copy:focus-visible {
-        outline: 3px solid rgba(94,234,212,0.7);
+    button:focus-visible,
+    .sidebar-message-card__copy:focus-visible,
+    input:focus-visible,
+    textarea:focus-visible,
+    select:focus-visible {
+        outline: 3px solid color-mix(in srgb, var(--color-info-border) 60%, transparent);
         outline-offset: 2px;
     }
     @media (prefers-reduced-motion: reduce) {
@@ -689,6 +954,7 @@ def get_connection():
     """Retorna una nueva conexión a la base de datos."""
     os.makedirs(os.path.dirname(db_filename), exist_ok=True)
     conn = sqlite3.connect(db_filename, check_same_thread=False)
+    conn.execute("PRAGMA foreign_keys = ON")
     conn.create_function("normalize_phone", 1, normalize_phone)
     return conn
 
@@ -746,6 +1012,26 @@ def migrate_contactos_schema():
             )
             cur.execute("DROP TABLE contactos_old")
             con.commit()
+
+
+def migrate_contactos_link_id_values() -> None:
+    """Convierte valores legacy BLOB en ``contactos.id_link`` a INTEGER."""
+    with get_connection() as con:
+        cur = con.cursor()
+        cur.execute("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='contactos'")
+        if cur.fetchone()[0] == 0:
+            return
+
+        cur.execute(
+            """
+            UPDATE contactos
+            SET id_link = unicode(CAST(substr(id_link, 1, 1) AS TEXT))
+            WHERE id_link IS NOT NULL
+              AND typeof(id_link) = 'blob'
+              AND length(id_link) > 0
+            """
+        )
+        con.commit()
 
 def migrate_user_schema():
     """Crea tabla de usuarios y agrega columnas ``user_id`` si faltan."""
@@ -868,6 +1154,37 @@ def read_query(query, params=None):
     """Ejecuta una consulta SQL y retorna un DataFrame."""
     with get_connection() as con:
         return pd.read_sql_query(query, con, params=params)
+
+
+def get_contact_by_link_auto(link_auto: str) -> dict[str, Any] | None:
+    """Busca un contacto por ``link_auto`` normalizado y retorna metadatos utiles."""
+    normalized = sanitize_vehicle_link(link_auto)
+    if not normalized:
+        return None
+    with get_connection() as con:
+        cur = con.cursor()
+        cur.execute(
+            """
+            SELECT c.id, c.telefono, c.nombre, c.auto, c.id_link, l.marca, l.descripcion
+            FROM contactos c
+            LEFT JOIN links_contactos l ON c.id_link = l.id
+            WHERE c.link_auto = ?
+            LIMIT 1
+            """,
+            (normalized,),
+        )
+        row = cur.fetchone()
+    if not row:
+        return None
+    return {
+        "id": row[0],
+        "telefono": row[1],
+        "nombre": row[2],
+        "auto": row[3],
+        "id_link": decode_link_id(row[4]),
+        "marca": row[5],
+        "descripcion": row[6],
+    }
 
 
 def list_restricted_numbers():
@@ -1132,120 +1449,9 @@ def ensure_default_users():
 
 create_tables()
 migrate_contactos_schema()
+migrate_contactos_link_id_values()
 migrate_user_schema()
 ensure_default_users()
-
-# =============================================================================
-# FUNCIONES DE SCRAPING
-# =============================================================================
-def extract_whatsapp_number(soup):
-    """
-    Extrae el número de WhatsApp de un enlace en la página.
-    
-    Parámetros:
-    - soup (BeautifulSoup): Objeto BeautifulSoup con el contenido HTML parseado.
-    
-    Retorna:
-    - str: Número de WhatsApp sin el prefijo "56" si se encuentra, de lo contrario None.
-    """
-    whatsapp_link = soup.find("a", href=re.compile(r"https://wa\.me/56\d{9}"))
-    if whatsapp_link:
-        match = re.search(r"https://wa\.me/56(\d{9})", whatsapp_link["href"])
-        if match:
-            return match.group(1)  # Extrae solo los 9 dígitos sin el prefijo "56"
-    return None
-
-def scrape_vehicle_details(url):
-    """Extrae detalles de un vehículo desde la URL dada."""
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-        'Accept-Language': 'es-CL,es;q=0.9,en;q=0.8',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Cache-Control': 'max-age=0',
-        'Connection': 'keep-alive',
-        'Referer': 'https://www.chileautos.cl/',
-        'Upgrade-Insecure-Requests': '1',
-        'sec-ch-ua': '"Not A(Brand";v="8", "Chromium";v="132", "Google Chrome";v="132"',
-        'sec-ch-ua-mobile': '?0',
-        'sec-ch-ua-platform': '"Windows"',
-        'sec-fetch-dest': 'document',
-        'sec-fetch-mode': 'navigate',
-        'sec-fetch-site': 'same-origin',
-        'sec-fetch-user': '?1',
-    }
-    try:
-        session = requests.Session()
-        session.headers.update(headers)
-        response = session.get(url, timeout=15)
-        if response.status_code != 200:
-            st.error(f"Error al obtener la página: {response.status_code}")
-            return None
-    except requests.RequestException as e:
-        st.error(f"Error de conexión: {e}")
-        return None
-    soup = BeautifulSoup(response.content, "html.parser")
-    
-    # --- Extracción del número de WhatsApp ---
-    whatsapp_number = extract_whatsapp_number(soup)
-
-    # Extraer datos del vehículo
-    nombre, anio, precio = None, None, None
-    vehiculo_elem = soup.find("div", class_="features-item-value-vehculo")
-    if vehiculo_elem:
-        texto_vehiculo = vehiculo_elem.get_text(strip=True)
-        partes = texto_vehiculo.split(" ", 1)
-        if partes and partes[0].isdigit() and len(partes[0]) == 4:
-            anio = partes[0]
-            nombre = partes[1] if len(partes) > 1 else ""
-        else:
-            nombre = texto_vehiculo
-    if not nombre:
-        h1_elem = soup.find("h1")
-        if h1_elem:
-            titulo_texto = h1_elem.get_text(strip=True)
-            partes = titulo_texto.split(" ", 1)
-            if partes and partes[0].isdigit() and len(partes[0]) == 4:
-                anio = partes[0]
-                nombre = partes[1] if len(partes) > 1 else titulo_texto
-            else:
-                nombre = titulo_texto
-    nombre_completo = f"{anio} {nombre}" if anio else nombre
-    precio_elem = soup.find("div", class_="features-item-value-precio")
-    if precio_elem:
-        precio_texto = precio_elem.get_text(strip=True)
-        match = re.search(r"\$(\d{1,3}(?:,\d{3})+)", precio_texto)
-        precio = match.group(1) if match else precio_texto
-    descripcion = "No disponible"
-    descripcion_container = soup.find("div", class_="view-more-container")
-    if descripcion_container:
-        view_more_target = descripcion_container.find("div", class_="view-more-target")
-        if view_more_target:
-            p_elem = view_more_target.find("p")
-            if p_elem:
-                descripcion = p_elem.get_text(strip=True)
-    normalized = normalize_phone(phone)
-    if not normalized:
-        return pd.DataFrame()
-    query = """
-        SELECT
-            c.id,
-            c.link_auto,
-            c.telefono,
-            c.nombre,
-            c.auto,
-            c.precio,
-            c.descripcion AS contacto_descripcion,
-            c.id_link,
-            l.marca AS link_marca,
-            l.descripcion AS link_descripcion,
-            l.link_general
-        FROM contactos c
-        LEFT JOIN links_contactos l ON c.id_link = l.id
-        WHERE normalize_phone(c.telefono) = ?
-    """
-    return read_query(query, params=[normalized])
-
 
 
 def fetch_contacts_for_link(link_id: int, filters: dict | None = None, include_restricted: bool = False) -> pd.DataFrame:
@@ -1364,6 +1570,7 @@ def ensure_default_users():
 
 create_tables()
 migrate_contactos_schema()
+migrate_contactos_link_id_values()
 migrate_user_schema()
 ensure_default_users()
 
@@ -1411,7 +1618,13 @@ def scrape_vehicle_details(url):
         session.headers.update(headers)
         response = session.get(url, timeout=15)
         if response.status_code != 200:
-            st.error(f"Error al obtener la página: {response.status_code}")
+            if response.status_code == 403 and response.headers.get("x-datadome") == "protected":
+                st.warning(
+                    "⚠️ Chileautos bloqueó la solicitud (DataDome). "
+                    "Espera unos minutos o cambia de red."
+                )
+            else:
+                st.error(f"Error al obtener la página: {response.status_code}")
             return None
     except requests.RequestException as e:
         st.error(f"Error de conexión: {e}")
@@ -1643,6 +1856,15 @@ def delete_link_record(link_id):
     """Elimina un registro de la tabla links_contactos."""
     try:
         with get_connection() as con:
+            cur = con.cursor()
+            cur.execute("SELECT COUNT(*) FROM contactos WHERE id_link = ?", (link_id,))
+            asociados = cur.fetchone()[0]
+            if asociados > 0:
+                st.error(
+                    "No se puede eliminar el link porque tiene contactos asociados. "
+                    "Reasigna o elimina esos contactos primero."
+                )
+                return False
             con.execute("DELETE FROM links_contactos WHERE id = ?", (link_id,))
             con.commit()
             return True
@@ -2198,7 +2420,7 @@ elif page == "Agregar Contactos":
         st.markdown(f"**Fecha de Creación:** {selected_link['fecha_creacion']}")
         st.markdown(f"**Marca:** {selected_link['marca']}")
         st.markdown(f"**Descripción:** {selected_link['descripcion']}")
-        link_id = selected_link["id"]
+        link_id = int(selected_link["id"])
 
         def clear_contact_form_fields():
             for k in [
@@ -2211,6 +2433,7 @@ elif page == "Agregar Contactos":
             ]:
                 if k in st.session_state:
                     st.session_state[k] = ""
+            st.session_state.pop("scraped_cache", None)
 
         if st.session_state.get("clear_contact_form", False):
             clear_contact_form_fields()
@@ -2224,19 +2447,39 @@ elif page == "Agregar Contactos":
         # Después de obtener el valor del link, normalizarlo y verificar duplicados
         raw_link_auto = st.session_state.get("link_auto", "")
         link_auto_value = sanitize_vehicle_link(raw_link_auto) if raw_link_auto else ""
-        link_exists = False
+        existing_contact = None
         scraped_data = {}
         if link_auto_value:
-            with get_connection() as con:
-                cur = con.cursor()
-                cur.execute(
-                    "SELECT 1 FROM contactos WHERE link_auto = ? LIMIT 1",
-                    (link_auto_value,),
+            existing_contact = get_contact_by_link_auto(link_auto_value)
+            if existing_contact:
+                marca = existing_contact.get("marca") or "Sin marca"
+                descripcion = existing_contact.get("descripcion") or "Sin descripcion"
+                st.warning("El link del auto ya esta registrado en la base de datos.")
+                st.info(
+                    f"Contacto existente ID {existing_contact['id']} | "
+                    f"Telefono: {existing_contact.get('telefono') or 'Sin telefono'} | "
+                    f"Auto: {existing_contact.get('auto') or 'Sin auto'} | "
+                    f"Link grupo: {marca} - {descripcion}"
                 )
-                link_exists = cur.fetchone() is not None
-            if link_exists:
-                st.warning("El link del auto ya está registrado en la base de datos.")
-            scraped_data = scrape_vehicle_details(link_auto_value)
+
+        col_scrape, _ = st.columns([1, 3])
+        scrape_triggered = col_scrape.button("🔍 Obtener datos", key="btn_scrape")
+        if scrape_triggered and link_auto_value:
+            cached = st.session_state.get("scraped_cache", {})
+            if cached.get("url") == link_auto_value:
+                scraped_data = cached["data"]
+            else:
+                with st.spinner("Obteniendo datos del aviso..."):
+                    scraped_data = scrape_vehicle_details(link_auto_value)
+                if scraped_data:
+                    st.session_state["scraped_cache"] = {"url": link_auto_value, "data": scraped_data}
+            if scraped_data:
+                st.session_state["telefono_input"] = scraped_data.get("whatsapp_number", "") or ""
+                st.session_state["auto_input"] = scraped_data.get("nombre", "") or ""
+                st.session_state["precio_input"] = scraped_data.get("precio", "") or ""
+                st.session_state["descripcion_input"] = scraped_data.get("descripcion", "") or ""
+        elif st.session_state.get("scraped_cache", {}).get("url") == link_auto_value and link_auto_value:
+            scraped_data = st.session_state["scraped_cache"]["data"]
 
         # Prellenar los campos con los datos extraídos (si existen)
         whatsapp_prefill = scraped_data.get("whatsapp_number", "") if scraped_data else ""
@@ -2280,30 +2523,43 @@ elif page == "Agregar Contactos":
                 except ValueError:
                     st.error("Precio inválido. Ejemplo: 10,500,000")
                     st.stop()
-                try:
-                    with get_connection() as con:
-                        cursor = con.cursor()
-                        cursor.execute(
-                            '''
-                            INSERT INTO contactos (link_auto, telefono, nombre, auto, precio, descripcion, id_link)
-                            VALUES (?, ?, ?, ?, ?, ?, ?)
-                            ''',
-                            (
-                                link_auto_value,
-                                telefono,
-                                nombre.strip(),
-                                auto_modelo.strip(),
-                                precio,
-                                descripcion_contacto.strip(),
-                                link_id,
-                            ),
-                        )
-                        con.commit()
-                    st.session_state["contacto_agregado"] = True
-                    st.session_state["clear_contact_form"] = True
-                    st.rerun()
-                except sqlite3.IntegrityError:
-                    st.error("El link del auto ya existe. Ingrese otro enlace.")
+                if existing_contact:
+                    st.error(
+                        "No se agrego el contacto porque el link del auto ya existe. "
+                        "Revisa el registro existente mostrado arriba."
+                    )
+                else:
+                    try:
+                        with get_connection() as con:
+                            cursor = con.cursor()
+                            cursor.execute(
+                                '''
+                                INSERT INTO contactos (link_auto, telefono, nombre, auto, precio, descripcion, id_link)
+                                VALUES (?, ?, ?, ?, ?, ?, ?)
+                                ''',
+                                (
+                                    link_auto_value,
+                                    telefono,
+                                    nombre.strip(),
+                                    auto_modelo.strip(),
+                                    precio,
+                                    descripcion_contacto.strip(),
+                                    int(link_id),
+                                ),
+                            )
+                            con.commit()
+                        st.session_state["contacto_agregado"] = True
+                        st.session_state["clear_contact_form"] = True
+                        st.rerun()
+                    except sqlite3.IntegrityError:
+                        existing = get_contact_by_link_auto(link_auto_value)
+                        if existing:
+                            st.error(
+                                f"El link ya existe en el contacto ID {existing['id']}. "
+                                "Abre ese registro para editarlo o usa otro link."
+                            )
+                        else:
+                            st.error("El link del auto ya existe. Ingrese otro enlace.")
 
 # =============================================================================
 # PÁGINA: VER CONTACTOS & EXPORTAR
@@ -2364,7 +2620,7 @@ elif page == "Ver Contactos & Exportar":
         )
         link_selected = st.selectbox("Selecciona el Link Contactos", df_links['display'])
         selected_link = df_links[df_links['display'] == link_selected].iloc[0]
-        link_id = selected_link["id"]
+        link_id = int(selected_link["id"])
         st.markdown(f"**Fecha de Creación:** {selected_link['fecha_creacion']}")
         st.markdown(f"**Marca:** {selected_link['marca']}")
         st.markdown(f"**Descripción:** {selected_link['descripcion']}")
@@ -2505,7 +2761,7 @@ elif page == "CWS Chat WhatsApp":
             "Selecciona el Link Contactos", df_links['display']
         )
         selected_link = df_links[df_links['display'] == link_selected].iloc[0]
-        link_id = selected_link['id']
+        link_id = int(selected_link['id'])
 
         mensajes_df = read_query(
             "SELECT * FROM mensajes WHERE user_id = ?",

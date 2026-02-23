@@ -76,7 +76,7 @@ def test_sanitize_existing_links_removes_duplicates():
         cur = conn.cursor()
         cur.execute("SELECT link_auto FROM contactos")
         rows = [r[0] for r in cur.fetchall()]
-        assert rows == ["https://example.com/car"]
+        assert rows == ["https://example.com/car/"]
 
 
 def test_sanitize_all_links_processes_entire_table():
@@ -94,4 +94,4 @@ def test_sanitize_all_links_processes_entire_table():
         cur = conn.cursor()
         cur.execute("SELECT link_auto FROM contactos ORDER BY id")
         rows = [r[0] for r in cur.fetchall()]
-        assert rows == ["https://example.com/car", "https://example.com/othercar"]
+        assert rows == ["https://example.com/car/", "https://example.com/othercar/"]
