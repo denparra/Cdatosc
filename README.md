@@ -165,6 +165,7 @@ python run.py
 ### Credenciales Iniciales
 Al arrancar por primera vez, el sistema crea usuarios por defecto:
 *   **Admin**: Usuario `admin` / Contraseña `admin`
+*   **SuperAdmin**: Usuario `superadmin` / Contraseña `superadmin`
 *   **User**: Usuario `test` / Contraseña `test`
 
 ---
@@ -208,6 +209,15 @@ Registro manual o semiautomático (desde contactos existentes) de personas que h
 *   **Sanitize User Input**: El sistema implementa limpieza básica de inputs de formularios.
 *   **SQL Injection**: Se utiliza parametrización de queries en todas las llamadas a SQLite para prevenir inyecciones.
 *   **Roles**: El sistema distingue estrictamente entre `admin` y `user` para operaciones destructivas (sanitizar, borrar usuarios, lista negra).
+
+---
+## 📚 Documentacion y fuente de verdad
+
+Para evitar divergencias, la documentacion del proyecto se centraliza en `docs/README.md`.
+
+- Contrato vigente de runtime/build portable: `docs/governance/portable-runtime-source-of-truth.md`
+- Guia operativa de compilacion: `docs/build/portable-build-reference.md`
+- Guia operativa SuperAdmin Multi-BD: `docs/operations/superadmin-multidb-guide.md`
 
 ---
 *Documentación actualizada automáticamente por Antigravity.*

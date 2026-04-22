@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \":*)",
+      "Bash(python:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git tag:*)",
+      "Bash(git push:*)",
+      "Bash(tasklist | grep -i \"MiApp\" 2>/dev/null || tasklist | findstr /i \"MiApp\" 22)",
+      "Bash(taskkill:*)",
+      "Bash(cmd:*)",
+      "Bash(powershell:*)",
+      "Bash(cd:*)",
+      "Bash(cd \"C:/Users/denny/OneDrive/Documentos/PRACTICAS/PYTHON/Streamlit/CODEX/DATOS_CONSIGNACION\" && pyinstaller MiAppStreamlit.spec --noconfirm --clean 2>&1)",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_take_screenshot",
+      "mcp__playwright__browser_snapshot",
+      "mcp__playwright__browser_evaluate",
+      "mcp__playwright__browser_network_requests"
+    ]
+  }
+}

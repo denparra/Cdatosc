@@ -1,0 +1,186 @@
+<style type="text/css">
+body { font-family: verdana; }
+h1 { font-family: trebuchet ms, verdana; font-size: 20px; color: #000000; border-bottom:1px solid grey; }
+h2 { font-family: trebuchet ms, verdana; font-size: 18px; color: #000000; border-bottom:1px solid grey; }
+p { font-size: 13px; }
+table { font-size: 13px; border: 1px solid; border-collapse:collapse; }
+.report_tab tr:hover td { background-color: #A4BBFE; }
+.snippet_tab { width:100%; table-layout:fixed; overflow-wrap:break-word; word-wrap: break-word; word-break: break-word; }
+.snippet_num_col { width:auto; min-width: 10px;}
+.snippet_col { width:48%; }
+th { background: #FFFFFF; padding: 0px 10px 0px 10px; border: 1px solid grey; }
+td { padding: 0px 10px 0px 10px; border: 1px solid grey; }
+.td_warn { background:yellow; }
+.td_error { background:lightpink; }
+a:link { text-decoration: none; color: #0000A0;}
+a:visited { text-decoration: none; color: #0000A0;}
+a:active { text-decoration: none; color: #0000A0;}
+a:hover { text-decoration: none; color: #800517;}
+pre { white-space: pre-wrap; } 
+.token_kw { color:blue }
+.token_str { color:green }
+.token_num { color:brown }
+.token_dtype { color:maroon  }
+.token_symb { color:darkblue }
+.token_comment { color:grey }
+.token_func { color:blue }
+.token_udf { color:#8B0000 }
+.token_ok { background-color:#E0FFD2 }
+.token_error { background-color:#FFCCCB }
+.token_warn { background-color:#FFF380 }
+
+.dotted-underline {
+  display: inline-block; /* Required for width control */
+  position: relative;
+  padding-bottom: 1px; /* Space for the underline */
+}
+
+.dotted-underline::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 25%; /* Underline covers 25% of text width */
+  border-bottom: 1px dotted #333; /* Adjust color/style */
+}
+
+.tooltip { position: relative; display: inline-block; cursor: pointer; }
+.tooltip .tooltiptext {
+  visibility: hidden;
+  background-color: #fff;
+  color: #555;
+  font-family: verdana;
+  font-size: 11px; 
+  border-style: ridge;
+  border-radius: 6px;
+  padding: 5px 5px;
+  position: absolute;
+  z-index: 1;
+  left: 100%;           /* tooltip is placed on the right without any padding */
+  white-space: normal;
+  top: 50%;
+  opacity: 0;
+  transition: opacity 0.3s;
+  width: max-content;
+  margin-left: -10px;  /* tooltip sligthly overlaps on the right so we can easily go to link */
+  user-select: none;
+}
+.tooltip:hover .tooltiptext { visibility: visible; opacity: 1; }
+
+</style>
+
+<!------------------------------->
+
+<h2>Top-Level Statements by Type</h2>
+
+<p>Standalone top-level SQL statements by type excluding nested statements that appear inside other statements 
+(CREATE TABLE or INSERT inside CREATE PROCEDURE i.e.):</p>
+<table class="report_tab"><tr><th></th><th>Statement Type</th><th>Count</th><th>Conversion</th><th>Complexity</th><th title="Non-Empty Lines">Lines</th><th colspan="2">Need Conversion</th><th colspan="2">Automated</th><th colspan="2">Manual</th></tr><tr><td>1</td><td><a href="sqlines_report_snippets.html#top_statements_by_type_table_DML">DML</a></td><td align="right">128281</td><td>Ok: 5209 <span style="color:green"><strong>&#x2713;</strong></span> No Need: 118819 <span style="color:green"><strong>&#x2713;</strong></span> Warnings: 4253 <span style="color:orange"><strong>!</strong></span></td><td>Undefined: 9462</td><td align="right">128281</td><td>9462</td><td>7.4%</td><td>9462</td><td>100.0%</td><td>0</td><td>0.0%</td></tr>
+<tr><td>2</td><td><a href="sqlines_report_snippets2.html#top_statements_by_type_table_System_and_Control">System and Control</a></td><td align="right">2</td><td><span class="td_warn1">Check: 2</span> <span style="color:red"><strong>!</strong></span></td><td>Undefined: 2</td><td align="right">0</td><td>0</td><td>0.0%</td><td>0</td><td>0.0%</td><td>0</td><td>0.0%</td></tr>
+<tr><td>3</td><td><a href="sqlines_report_snippets2.html#top_statements_by_type_table_Table">Table</a></td><td align="right">10</td><td>Ok: 1 <span style="color:green"><strong>&#x2713;</strong></span> <span class="td_warn1">Check: 9</span> <span style="color:red"><strong>!</strong></span></td><td>Low: 9, Undefined: 1</td><td align="right">81</td><td>45</td><td>55.6%</td><td>33</td><td>73.3%</td><td>12</td><td>26.7%</td></tr>
+</table><p><b>Total:</b> 3 distinct statement types, 128293 occurrences.</p>
+
+
+<!------------------------------->
+
+<h2>All SQL Statements</h2>
+
+<p>Note that some statements can be nested within others (CREATE TABLE or INSERT inside CREATE PROCEDURE i.e. so issues, lines and other metrics cannot be summed): </p>
+<table class="report_tab"><tr><th></th><th>Statement</th><th>Description</th><th>Count</th><th>Conversion</th><th>Complexity</th><th>Lines</th><th colspan="2">Need Conversion</th><th colspan="2">Automated</th><th colspan="2">Manual</th></tr><tr><td>1</td><td><a href="sqlines_report_snippets2.html#statements_table_BEGIN_TRANSACTION">BEGIN TRANSACTION</a></td><td>Start transaction</td><td align="right">1</td><td><span class="td_warn1">Check: 1</span> <span style="color:red"><strong>!</strong></span></td><td>Undefined: 1</td><td align="right">0</td><td>0</td><td>0.0%</td><td>0</td><td>0.0%</td><td>0</td><td>0.0%</td></tr>
+<tr><td>2</td><td><a href="sqlines_report_snippets2.html#statements_table_COMMIT">COMMIT</a></td><td>Commit transaction</td><td align="right">1</td><td><span class="td_warn1">Check: 1</span> <span style="color:red"><strong>!</strong></span></td><td>Undefined: 1</td><td align="right">0</td><td>0</td><td>0.0%</td><td>0</td><td>0.0%</td><td>0</td><td>0.0%</td></tr>
+<tr><td>3</td><td><a href="sqlines_report_snippets2.html#statements_table_CREATE_TABLE">CREATE TABLE</a></td><td>Create table</td><td align="right">10</td><td>Ok: 1 <span style="color:green"><strong>&#x2713;</strong></span> <span class="td_warn1">Check: 9</span> <span style="color:red"><strong>!</strong></span></td><td>Low: 9, Undefined: 1</td><td align="right">81</td><td>45</td><td>55.6%</td><td>33</td><td>73.3%</td><td>12</td><td>26.7%</td></tr>
+<tr><td>4</td><td><a href="sqlines_report_snippets2.html#statements_table_DELETE">DELETE</a></td><td>Delete rows</td><td align="right">1</td><td>No Need: 1 <span style="color:green"><strong>&#x2713;</strong></span></td><td></td><td align="right">1</td><td>0</td><td>0.0%</td><td>0</td><td>0.0%</td><td>0</td><td>0.0%</td></tr>
+<tr><td>5</td><td><a href="sqlines_report_snippets2.html#statements_table_INSERT">INSERT</a></td><td>Insert rows</td><td align="right">128280</td><td>Ok: 5209 <span style="color:green"><strong>&#x2713;</strong></span> No Need: 118818 <span style="color:green"><strong>&#x2713;</strong></span> Warnings: 4253 <span style="color:orange"><strong>!</strong></span></td><td>Undefined: 9462</td><td align="right">128280</td><td>9462</td><td>7.4%</td><td>9462</td><td>100.0%</td><td>0</td><td>0.0%</td></tr>
+</table><p><b>Total:</b> 5 distinct statements, 128293 occurrences.</p>
+  <p>CREATE TABLE statements details:</p><table class="report_tab"><tr><th></th><th>Details</th><th>Description</th><th>Count</th><th>Conversion</th><th>Complexity</th></tr><tr><td>1</td><td><a href="sqlines_report_snippets2.html#crtab_stmt_table_NOT_NULL">NOT NULL</a></td><td><a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">NOT NULL constraint <sup style="font-size: 0.5em;">&#8251;</sup></a></td><td align="right">36</td><td>No Need: 36 <span style="color:green"><strong>&#x2713;</strong></span></td><td></td></tr>
+</table>
+  
+  
+  
+  
+  
+  
+  
+
+
+<!------------------------------->
+
+<h2>Data Types</h2>
+
+<p>All built-in data types:</p><table class="report_tab"><tr><th></th><th>Source Data Type</th><th>Description</th><th>Count</th><th>Conversion</th><th>Complexity</th></tr><tr><td>1</td><td><a href="sqlines_report_snippets2.html#datatypes_table_INTEGER">INTEGER</a></td><td>Integer number</td><td align="right">19</td><td>No Need: 19 <span style="color:green"><strong>&#x2713;</strong></span></td><td></td></tr>
+<tr><td>2</td><td><a href="sqlines_report_snippets2.html#datatypes_table_REAL">REAL</a></td><td>Floating-point number</td><td align="right">1</td><td>No Need: 1 <span style="color:green"><strong>&#x2713;</strong></span></td><td></td></tr>
+<tr><td>3</td><td><a href="sqlines_report_snippets2.html#datatypes_table_TEXT">TEXT</a></td><td>Character string</td><td align="right">33</td><td>Ok: 33 <span style="color:green"><strong>&#x2713;</strong></span></td><td>Low: 33</td></tr>
+</table><p><b>Total:</b> 3 distinct data types, 53 occurrences.</p>
+  <p>Built-in data type details:</p><table class="report_tab"><tr><th></th><th>Source Data Type</th><th>Count</th></tr>
+<tr><td>1</td><td><a href="sqlines_report_snippets2.html#datatype_dtl_table_REAL">REAL</a></td><td>1</td></tr><tr><td>2</td><td><a href="sqlines_report_snippets2.html#datatype_dtl_table_TEXT">TEXT</a></td><td>12</td></tr></table><p><b>Total:</b> 2 distinct data type specifications, 13 occurrences.</p>
+  
+
+
+<!------------------------------->
+
+<h2>Expressions</h2>
+
+<p>Specific SQL language elements and expressions:</p><table class="report_tab"><tr><th></th><th>Expression</th><th>Description</th><th>Count</th><th>Conversion</th><th>Complexity</th></tr><tr><td>1</td><td><a href="sqlines_report_snippets2.html#expressions_table_Strings">Strings</a></td><td></td><td align="right">284980</td><td>Ok: 5209 <span style="color:green"><strong>&#x2713;</strong></span> No Need: 279771 <span style="color:green"><strong>&#x2713;</strong></span></td><td>Undefined: 5209</td></tr>
+<tr><td>2</td><td><a href="sqlines_report_snippets3.html#expressions_table_Strings_containing_basic_SQL_keywords">Strings containing basic SQL keywords</a></td><td></td><td align="right">62</td><td>No Need: 62 <span style="color:green"><strong>&#x2713;</strong></span></td><td></td></tr>
+</table><p><b>Total:</b> 2 distinct expressions, 285042 occurrences.</p>
+  
+
+
+<!------------------------------->
+
+<h2>Functions</h2>
+
+<p>All built-in functions:</p><table class="report_tab"><tr><th></th><th>Function</th><th>Description</th><th>Count</th><th>Conversion</th><th>Complexity</th></tr><tr><td>1</td><td><a href="sqlines_report_snippets3.html#builtin_func_table_DATETIME">DATETIME</a></td><td></td><td align="right">1</td><td>Warning: 1 <span style="color:orange"><strong>!</strong></span></td><td>Undefined: 1</td></tr>
+<tr><td>2</td><td><a href="sqlines_report_snippets3.html#builtin_func_table_UNISTR">UNISTR</a></td><td></td><td align="right">4253</td><td>Warnings: 4253 <span style="color:orange"><strong>!</strong></span></td><td>Undefined: 4253</td></tr>
+</table><p><b>Total:</b> 2 distinct functions, 4254 occurrences.</p>
+  
+
+
+<!------------------------------->
+
+
+<!------------------------------->
+
+
+<!------------------------------->
+
+
+<!------------------------------->
+
+
+<!------------------------------->
+
+
+<!------------------------------->
+
+<a name="conversion_issues"></a>
+<h2>Conversion Issues</h2>
+
+<p>Conversion issues that require review:</p><table class="report_tab"><tr><th></th><th>Issue</th><th>Description</th><th>Count</th><tr><td>1</td><td><a href="sqlines_report_snippets3.html#conversion_issues_BEGIN_TRANSACTION">BEGIN TRANSACTION</a></td><td>Start transaction</td><td>2</td></tr><tr><td>2</td><td><a href="sqlines_report_snippets3.html#conversion_issues_COMMIT">COMMIT</a></td><td>Commit transaction</td><td>2</td></tr><tr><td>3</td><td><a href="sqlines_report_snippets3.html#conversion_issues_System_and_Control">System and Control</a></td><td>Start transaction</td><td>2</td></tr></table><p><b>Total:</b> 3 distinct conversion issues, 6 occurrences.</p>
+
+
+<!------------------------------->
+
+<a name="conversion_warnings"></a>
+<h2>Conversion Warnings</h2>
+
+<p>Conversion warnings that require review (conversion can be ok but some functionality can be restricted):</p><table class="report_tab"><tr><th></th><th>Warning</th><th>Description</th><th>Count</th></tr><tr><td>1</td><td><a href="sqlines_report_snippets3.html#conversion_warnings_DATETIME_-_Function">DATETIME - Function</a></td><td></td><td align="right">1</td></tr>
+<tr><td>2</td><td><a href="sqlines_report_snippets3.html#conversion_warnings_UNISTR_-_Function">UNISTR - Function</a></td><td></td><td align="right">4253</td></tr>
+</table><p><b>Total:</b> 2 distinct warnings, 4254 occurrences.</p>
+
+
+<!------------------------------->
+
+<a name="conversion_syntax_errors"></a>
+<h2>Syntax Errors or Unexpected Tokens</h2>
+
+<p>Syntax errors or unexpected tokens in the input file(s):</p><table class="report_tab"><tr><th></th><th>Syntax Issue</th><th>Count</th><tr><td>1</td><td><a href="sqlines_report_snippets3.html#syntax_errors_unexpected_tokens_Unexpected_token:_PRAGMA">Unexpected token: PRAGMA</a></td><td>3</td></tr></table><p><b>Total:</b> 1 distinct syntax issue, 3 occurrences.</p>
+
+
+<!------------------------------->
+
+<a name="conversion_undefined_tokens"></a>
+<h2>Undefined Tokens</h2>
+
+<p>Parsed tokens for which conversion is undefined:</p><table class="report_tab"><tr><th></th><th>Token</th><th>Count</th><tr><td>1</td><td><a href="sqlines_report_snippets3.html#undefined_tokens_AUTOINCREMENT">AUTOINCREMENT</a></td><td>8</td></tr><tr><td>2</td><td><a href="sqlines_report_snippets3.html#undefined_tokens_BEGIN">BEGIN</a></td><td>1</td></tr><tr><td>3</td><td><a href="sqlines_report_snippets3.html#undefined_tokens_PRAGMA">PRAGMA</a></td><td>3</td></tr><tr><td>4</td><td><a href="sqlines_report_snippets3.html#undefined_tokens_REAL">REAL</a></td><td>1</td></tr><tr><td>5</td><td><a href="sqlines_report_snippets3.html#undefined_tokens_SEQ">SEQ</a></td><td>1</td></tr><tr><td>6</td><td><a href="sqlines_report_snippets3.html#undefined_tokens_TRANSACTION">TRANSACTION</a></td><td>1</td></tr></table><p><b>Total:</b> 6 distinct tokens, 15 occurrences.</p>
+

@@ -13,6 +13,7 @@ import sys
 import hashlib
 import random
 import json
+import time
 from html import escape
 from typing import Any
 
@@ -23,6 +24,16 @@ def resource_path(relative_path):
     except Exception:
         base_path = os.path.abspath('.')
     return os.path.join(base_path, relative_path)
+
+
+def get_runtime_base_dir() -> str:
+    """Return a writable base directory for runtime data."""
+    configured_base = os.environ.get("DATOS_CONSIGNACION_HOME")
+    if configured_base:
+        return os.path.abspath(configured_base)
+    if getattr(sys, "frozen", False):
+        return os.path.dirname(sys.executable)
+    return os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
 
 def sanitize_vehicle_link(url: str) -> str:
@@ -44,6 +55,13 @@ def normalize_phone(value):
     if len(digits) > 9:
         digits = digits[-9:]
     return digits
+
+
+def has_admin_access(user: dict[str, Any] | None) -> bool:
+    """Return True when a user has administrative capabilities."""
+    if not user:
+        return False
+    return str(user.get("role", "")).strip().lower() in {"admin", "superadmin"}
 
 
 def decode_link_id(raw_link_id: Any) -> int | None:
@@ -641,8 +659,9 @@ NAV_METADATA: dict[str, dict[str, str]] = {
     "Mensajes": {"icon": "✉️", "caption": "Organiza plantillas para responder con consistencia."},
     "Clientes Interesados": {"icon": "⭐", "caption": "Registra solicitudes de información y haz seguimiento rápido."},
     "Editar": {"icon": "🛠️", "caption": "Actualiza contactos, links o mensajes sin duplicar registros."},
-    "Contactos Restringidos": {"icon": "🚫", "caption": "Administra la lista global de números bloqueados."},
+    "Contactos Restringidos": {"icon": "🚫", "caption": "Administra bloqueos por contacto específico o de forma global cuando aplique."},
     "Admin Usuarios": {"icon": "🧑‍💼", "caption": "Crea cuentas nuevas y ajusta roles del equipo."},
+    "SuperAdmin Multi-BD": {"icon": "🗄️", "caption": "Consolida dos bases SQLite, analiza y exporta resultados."},
 }
 
 
@@ -665,7 +684,12 @@ def render_sidebar_user_panel(user: dict[str, Any]) -> None:
     initials_source = "".join(ch for ch in username if ch.isalpha()) or username
     initials = escape(initials_source[:2].upper())
     role = str(user.get("role", "user"))
-    role_label = "Administrador" if role == "admin" else "Usuario"
+    role_label_map = {
+        "admin": "Administrador",
+        "superadmin": "SuperAdmin",
+        "user": "Usuario",
+    }
+    role_label = role_label_map.get(role.lower(), "Usuario")
     user_html = f"""
     <div class="sidebar-user-card" role="complementary" aria-label="Perfil activo">
         <div class="sidebar-user-card__initials" aria-hidden="true">{initials}</div>
@@ -693,8 +717,10 @@ def build_menu_options(user: dict[str, Any] | None) -> tuple[str, ...]:
         "Clientes Interesados",
         "Editar",
     ]
-    if user.get("role") == "admin":
+    if has_admin_access(user):
         menu_list += ["Contactos Restringidos", "Admin Usuarios"]
+    if str(user.get("role", "")).lower() == "superadmin":
+        menu_list += ["SuperAdmin Multi-BD"]
     return tuple(menu_list)
 
 
@@ -737,7 +763,7 @@ def render_navigation_sidebar(current_page: str) -> str:
 
     menu_options = build_menu_options(user)
 
-    if user and user.get("role") == "admin" and "Contactos Restringidos" in menu_options:
+    if has_admin_access(user) and "Contactos Restringidos" in menu_options:
         admin_start = menu_options.index("Contactos Restringidos") + 1  # nth-child es 1-based
         st.sidebar.markdown(
             f"""
@@ -775,7 +801,7 @@ def render_navigation_sidebar(current_page: str) -> str:
     if caption:
         st.sidebar.caption(caption)
 
-    if user and user.get("role") == "admin":
+    if has_admin_access(user):
         st.sidebar.markdown("<div class='sidebar-divider'></div>", unsafe_allow_html=True)
         st.sidebar.markdown(
             "<p class='sidebar-group-hint'>Las últimas opciones corresponden a herramientas administrativas.</p>",
@@ -948,11 +974,267 @@ if 'cws_msg' not in st.session_state:
 # =============================================================================
 # CONEXIÓN A LA BASE DE DATOS Y CREACIÓN DE TABLAS
 # =============================================================================
-db_filename = resource_path(os.path.join("data", "datos_consignacion.db"))
+runtime_base_dir = get_runtime_base_dir()
+db_dir = os.path.join(runtime_base_dir, "data")
+db_filename = os.path.join(db_dir, "datos_consignacion.db")
+multi_db_root_dir = os.path.join(db_dir, "multi_db_sources")
+multi_db_current_dir = os.path.join(multi_db_root_dir, "current")
+multi_db_archive_dir = os.path.join(multi_db_root_dir, "archive")
+multi_db_registry_path = os.path.join(multi_db_root_dir, "registry.json")
+
+
+def ensure_multi_db_storage() -> None:
+    """Create persistent folders used by the SuperAdmin multi-DB feature."""
+    os.makedirs(multi_db_current_dir, exist_ok=True)
+    os.makedirs(multi_db_archive_dir, exist_ok=True)
+
+
+def normalize_db_alias(alias: str) -> str:
+    """Normalize a source alias so it can be used as a filename safely."""
+    clean = re.sub(r"[^A-Za-z0-9_-]+", "_", str(alias).strip().lower()).strip("_")
+    return clean[:40]
+
+
+def load_multi_db_registry() -> dict[str, Any]:
+    """Load known source databases metadata from disk."""
+    ensure_multi_db_storage()
+    if not os.path.exists(multi_db_registry_path):
+        return {"sources": {}}
+    try:
+        with open(multi_db_registry_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return {"sources": {}}
+    if not isinstance(data, dict):
+        return {"sources": {}}
+    sources = data.get("sources")
+    if not isinstance(sources, dict):
+        data["sources"] = {}
+    return data
+
+
+def save_multi_db_registry(registry: dict[str, Any]) -> None:
+    """Persist source metadata for future SuperAdmin sessions."""
+    ensure_multi_db_storage()
+    with open(multi_db_registry_path, "w", encoding="utf-8") as f:
+        json.dump(registry, f, ensure_ascii=True, indent=2)
+
+
+def validate_external_db_schema(db_path: str) -> tuple[bool, str]:
+    """Validate that an external SQLite DB has the minimum expected tables."""
+    required_tables = {"contactos", "links_contactos", "users"}
+    if not os.path.exists(db_path):
+        return False, "No se encontró el archivo en disco."
+    con: sqlite3.Connection | None = None
+    try:
+        con = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, check_same_thread=False)
+        cur = con.cursor()
+        cur.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        tables = {str(row[0]) for row in cur.fetchall()}
+    except sqlite3.Error as exc:
+        return False, f"No se pudo abrir la base de datos: {exc}"
+    finally:
+        if con is not None:
+            con.close()
+    missing = sorted(required_tables - tables)
+    if missing:
+        return False, f"Esquema incompatible. Faltan tablas: {', '.join(missing)}."
+    return True, "OK"
+
+
+def replace_file_with_retry(src_path: str, dst_path: str, retries: int = 6, delay_seconds: float = 0.35) -> tuple[bool, str]:
+    """Replace destination file with retries to handle transient Windows file locks."""
+    last_error = ""
+    for attempt in range(max(1, retries)):
+        try:
+            os.replace(src_path, dst_path)
+            return True, ""
+        except OSError as exc:
+            last_error = str(exc)
+            if attempt == retries - 1:
+                break
+            time.sleep(delay_seconds)
+    return False, last_error
+
+
+def prune_source_backups(alias: str, keep: int = 15) -> int:
+    """Keep only the newest backup files for one alias."""
+    ensure_multi_db_storage()
+    prefix = f"{alias}_"
+    backups = [
+        os.path.join(multi_db_archive_dir, name)
+        for name in os.listdir(multi_db_archive_dir)
+        if name.startswith(prefix) and name.endswith(".db")
+    ]
+    backups.sort(key=lambda path: os.path.getmtime(path), reverse=True)
+    removed = 0
+    for old_path in backups[keep:]:
+        try:
+            os.remove(old_path)
+            removed += 1
+        except OSError:
+            continue
+    return removed
+
+
+def list_source_backups(alias: str) -> list[str]:
+    """Return backup file paths for one source alias sorted by date desc."""
+    ensure_multi_db_storage()
+    prefix = f"{alias}_"
+    backups = [
+        os.path.join(multi_db_archive_dir, name)
+        for name in os.listdir(multi_db_archive_dir)
+        if name.startswith(prefix) and name.endswith(".db")
+    ]
+    backups.sort(key=lambda path: os.path.getmtime(path), reverse=True)
+    return backups
+
+
+def save_uploaded_source_db(uploaded_file: Any, alias: str, label: str | None = None) -> tuple[bool, str]:
+    """Store an uploaded source DB in current/ and backup previous revisions."""
+    if uploaded_file is None:
+        return False, "Debes seleccionar un archivo .db."
+
+    clean_alias = normalize_db_alias(alias)
+    if not clean_alias:
+        return False, "El alias es obligatorio (solo letras, números, guion o guion bajo)."
+    if not str(uploaded_file.name).lower().endswith(".db"):
+        return False, "Solo se permiten archivos con extensión .db."
+
+    ensure_multi_db_storage()
+    current_path = os.path.join(multi_db_current_dir, f"{clean_alias}.db")
+    tmp_path = os.path.join(multi_db_current_dir, f".{clean_alias}.tmp.db")
+
+    try:
+        with open(tmp_path, "wb") as f:
+            f.write(uploaded_file.getbuffer())
+    except OSError as exc:
+        return False, f"No se pudo guardar el archivo temporal: {exc}"
+
+    valid, msg = validate_external_db_schema(tmp_path)
+    if not valid:
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
+        return False, msg
+
+    if os.path.exists(current_path):
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_path = os.path.join(multi_db_archive_dir, f"{clean_alias}_{timestamp}.db")
+        try:
+            with open(current_path, "rb") as src, open(backup_path, "wb") as dst:
+                dst.write(src.read())
+        except OSError as exc:
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
+            return False, f"No se pudo crear el respaldo previo: {exc}"
+
+    ok_replace, replace_error = replace_file_with_retry(tmp_path, current_path)
+    if not ok_replace:
+        return (
+            False,
+            "No se pudo actualizar la BD fuente tras varios intentos. "
+            f"Detalle: {replace_error}",
+        )
+
+    registry = load_multi_db_registry()
+    sources = registry.setdefault("sources", {})
+    sources[clean_alias] = {
+        "alias": clean_alias,
+        "label": (label or clean_alias).strip() or clean_alias,
+        "path": current_path,
+        "original_name": str(uploaded_file.name),
+        "updated_at": datetime.datetime.now().isoformat(timespec="seconds"),
+    }
+    save_multi_db_registry(registry)
+    prune_source_backups(clean_alias)
+    return True, f"Base '{clean_alias}' actualizada correctamente."
+
+
+def list_multi_db_sources() -> list[dict[str, Any]]:
+    """Return persisted multi-DB sources that still exist on disk."""
+    registry = load_multi_db_registry()
+    sources = registry.get("sources", {})
+    result: list[dict[str, Any]] = []
+    for alias, meta in sorted(sources.items()):
+        path = str(meta.get("path") or os.path.join(multi_db_current_dir, f"{alias}.db"))
+        if os.path.exists(path):
+            result.append(
+                {
+                    "alias": alias,
+                    "label": str(meta.get("label") or alias),
+                    "path": path,
+                    "updated_at": str(meta.get("updated_at") or ""),
+                }
+            )
+    return result
+
+
+def read_external_query(db_path: str, query: str, params: list[Any] | None = None) -> pd.DataFrame:
+    """Execute a read-only SQL query against an external SQLite database."""
+    if not os.path.exists(db_path):
+        return pd.DataFrame()
+    con: sqlite3.Connection | None = None
+    try:
+        con = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, check_same_thread=False)
+        return pd.read_sql_query(query, con, params=params)
+    except (sqlite3.Error, ValueError):
+        return pd.DataFrame()
+    finally:
+        if con is not None:
+            con.close()
+
+
+def fetch_contacts_for_external_source(db_path: str) -> pd.DataFrame:
+    """Fetch contacts from an external DB with resilient link association."""
+    query = """
+        SELECT
+            c.id,
+            c.link_auto,
+            c.telefono,
+            c.nombre,
+            c.auto,
+            c.precio,
+            c.descripcion,
+            CASE
+                WHEN typeof(c.id_link) = 'blob' THEN unicode(CAST(substr(c.id_link, 1, 1) AS TEXT))
+                ELSE c.id_link
+            END AS id_link_normalized,
+            l.marca,
+            l.descripcion AS link_desc
+        FROM contactos c
+        LEFT JOIN links_contactos l
+            ON l.id = CASE
+                WHEN typeof(c.id_link) = 'blob' THEN unicode(CAST(substr(c.id_link, 1, 1) AS TEXT))
+                ELSE c.id_link
+            END
+        ORDER BY c.id DESC
+    """
+    return read_external_query(db_path, query)
+
+
+def build_superadmin_multidb_export_dataframe(selected_sources: list[dict[str, Any]]) -> pd.DataFrame:
+    """Build one export DataFrame by combining contacts from multiple DB sources."""
+    frames: list[pd.DataFrame] = []
+    for source in selected_sources:
+        source_df = fetch_contacts_for_external_source(str(source["path"]))
+        if source_df.empty:
+            continue
+        source_df = source_df.reset_index(drop=True)
+        export_df = prepare_export_dataframe(source_df).reset_index(drop=True)
+        export_df["Origen"] = str(source.get("label") or source.get("alias") or "origen")
+        export_df["ID Origen"] = source_df["id"].apply(lambda v: f"{source.get('alias')}:{v}")
+        frames.append(export_df)
+    if not frames:
+        return pd.DataFrame()
+    return pd.concat(frames, ignore_index=True)
 
 def get_connection():
     """Retorna una nueva conexión a la base de datos."""
-    os.makedirs(os.path.dirname(db_filename), exist_ok=True)
+    os.makedirs(db_dir, exist_ok=True)
     conn = sqlite3.connect(db_filename, check_same_thread=False)
     conn.execute("PRAGMA foreign_keys = ON")
     conn.create_function("normalize_phone", 1, normalize_phone)
@@ -1116,6 +1398,34 @@ def create_tables():
             )
         ''')
         cursor.execute('''
+            CREATE TABLE IF NOT EXISTS contactos_restringidos_link (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                telefono_normalizado TEXT NOT NULL,
+                telefono_original TEXT NOT NULL,
+                link_id INTEGER NOT NULL,
+                motivo TEXT,
+                created_at TEXT NOT NULL,
+                created_by INTEGER NOT NULL,
+                UNIQUE(telefono_normalizado, link_id),
+                FOREIGN KEY (created_by) REFERENCES users(id),
+                FOREIGN KEY (link_id) REFERENCES links_contactos(id) ON DELETE CASCADE
+            )
+        ''')
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS contactos_restringidos_contacto (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                telefono_normalizado TEXT NOT NULL,
+                telefono_original TEXT NOT NULL,
+                contact_id INTEGER NOT NULL,
+                motivo TEXT,
+                created_at TEXT NOT NULL,
+                created_by INTEGER NOT NULL,
+                UNIQUE(contact_id),
+                FOREIGN KEY (created_by) REFERENCES users(id),
+                FOREIGN KEY (contact_id) REFERENCES contactos(id) ON DELETE CASCADE
+            )
+        ''')
+        cursor.execute('''
             CREATE TABLE IF NOT EXISTS mensajes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 descripcion TEXT NOT NULL,
@@ -1165,7 +1475,7 @@ def get_contact_by_link_auto(link_auto: str) -> dict[str, Any] | None:
         cur = con.cursor()
         cur.execute(
             """
-            SELECT c.id, c.telefono, c.nombre, c.auto, c.id_link, l.marca, l.descripcion
+            SELECT c.id, c.telefono, c.nombre, c.auto, c.id_link, l.marca, l.descripcion, l.fecha_creacion
             FROM contactos c
             LEFT JOIN links_contactos l ON c.id_link = l.id
             WHERE c.link_auto = ?
@@ -1184,6 +1494,7 @@ def get_contact_by_link_auto(link_auto: str) -> dict[str, Any] | None:
         "id_link": decode_link_id(row[4]),
         "marca": row[5],
         "descripcion": row[6],
+        "fecha_creacion_link": row[7],
     }
 
 
@@ -1202,6 +1513,149 @@ def list_restricted_numbers():
         ORDER BY r.created_at DESC
     """
     return read_query(query)
+
+
+def list_restricted_numbers_by_link() -> pd.DataFrame:
+    """Retorna restricciones con alcance por link."""
+    query = """
+        SELECT
+            r.telefono_original,
+            r.telefono_normalizado,
+            COALESCE(r.motivo, '') AS motivo,
+            r.link_id,
+            COALESCE(l.marca, '') AS link_marca,
+            COALESCE(l.descripcion, '') AS link_descripcion,
+            r.created_at,
+            r.created_by,
+            COALESCE(u.username, '') AS created_by_username
+        FROM contactos_restringidos_link r
+        LEFT JOIN users u ON r.created_by = u.id
+        LEFT JOIN links_contactos l ON r.link_id = l.id
+        ORDER BY r.created_at DESC
+    """
+    return read_query(query)
+
+
+def list_restricted_numbers_by_contact() -> pd.DataFrame:
+    """Retorna restricciones con alcance por contacto específico."""
+    query = """
+        SELECT
+            r.telefono_original,
+            r.telefono_normalizado,
+            COALESCE(r.motivo, '') AS motivo,
+            r.contact_id,
+            c.link_auto,
+            COALESCE(c.nombre, '') AS contacto_nombre,
+            COALESCE(c.auto, '') AS contacto_auto,
+            COALESCE(l.marca, '') AS link_marca,
+            COALESCE(l.descripcion, '') AS link_descripcion,
+            r.created_at,
+            r.created_by,
+            COALESCE(u.username, '') AS created_by_username
+        FROM contactos_restringidos_contacto r
+        LEFT JOIN contactos c ON r.contact_id = c.id
+        LEFT JOIN links_contactos l ON c.id_link = l.id
+        LEFT JOIN users u ON r.created_by = u.id
+        ORDER BY r.created_at DESC
+    """
+    return read_query(query)
+
+
+def list_all_restrictions() -> pd.DataFrame:
+    """Consolida restricciones globales y por link para visualización administrativa."""
+    query = """
+        SELECT
+            r.telefono_original,
+            r.telefono_normalizado,
+            COALESCE(r.motivo, '') AS motivo,
+            'GLOBAL' AS alcance,
+            NULL AS link_id,
+            NULL AS contact_id,
+            '' AS link_marca,
+            '' AS link_descripcion,
+            r.created_at,
+            COALESCE(u.username, '') AS created_by_username
+        FROM contactos_restringidos r
+        LEFT JOIN users u ON r.created_by = u.id
+
+        UNION ALL
+
+        SELECT
+            rl.telefono_original,
+            rl.telefono_normalizado,
+            COALESCE(rl.motivo, '') AS motivo,
+            'LINK' AS alcance,
+            rl.link_id,
+            NULL AS contact_id,
+            COALESCE(l.marca, '') AS link_marca,
+            COALESCE(l.descripcion, '') AS link_descripcion,
+            rl.created_at,
+            COALESCE(u.username, '') AS created_by_username
+        FROM contactos_restringidos_link rl
+        LEFT JOIN links_contactos l ON rl.link_id = l.id
+        LEFT JOIN users u ON rl.created_by = u.id
+
+        UNION ALL
+
+        SELECT
+            rc.telefono_original,
+            rc.telefono_normalizado,
+            COALESCE(rc.motivo, '') AS motivo,
+            'CONTACTO' AS alcance,
+            c.id_link AS link_id,
+            rc.contact_id,
+            COALESCE(l.marca, '') AS link_marca,
+            COALESCE(l.descripcion, '') AS link_descripcion,
+            rc.created_at,
+            COALESCE(u.username, '') AS created_by_username
+        FROM contactos_restringidos_contacto rc
+        LEFT JOIN contactos c ON rc.contact_id = c.id
+        LEFT JOIN links_contactos l ON c.id_link = l.id
+        LEFT JOIN users u ON rc.created_by = u.id
+
+        ORDER BY created_at DESC
+    """
+    return read_query(query)
+
+
+def remove_restriction(
+    scope: str,
+    telefono_normalizado: str,
+    link_id: int | None = None,
+    contact_id: int | None = None,
+) -> tuple[bool, str]:
+    """Elimina una restricción global, por link o por contacto."""
+    scope_value = (scope or "").strip().upper()
+    with get_connection() as con:
+        cur = con.cursor()
+        if scope_value == "GLOBAL":
+            cur.execute(
+                "DELETE FROM contactos_restringidos WHERE telefono_normalizado = ?",
+                (telefono_normalizado,),
+            )
+        elif scope_value == "LINK":
+            if link_id is None:
+                return False, "Falta link_id para eliminar la restricción por link."
+            cur.execute(
+                "DELETE FROM contactos_restringidos_link WHERE telefono_normalizado = ? AND link_id = ?",
+                (telefono_normalizado, int(link_id)),
+            )
+        elif scope_value == "CONTACTO":
+            if contact_id is None:
+                return False, "Falta contact_id para eliminar la restricción por contacto."
+            cur.execute(
+                "DELETE FROM contactos_restringidos_contacto WHERE contact_id = ?",
+                (int(contact_id),),
+            )
+        else:
+            return False, "Alcance inválido para eliminar restricción."
+
+        deleted = cur.rowcount
+        con.commit()
+
+    if deleted > 0:
+        return True, "Restricción eliminada correctamente."
+    return False, "No se encontró la restricción seleccionada para eliminar."
 
 
 
@@ -1269,40 +1723,115 @@ def list_interested_clients(filters: dict | None = None) -> pd.DataFrame:
     return read_query(query, params=params)
 
 
-def add_restricted_number(phone: str, motivo: str, user_id: int) -> tuple[bool, str]:
-    """Inserta o actualiza un número restringido y retorna el resultado."""
+def add_restricted_number(
+    phone: str,
+    motivo: str,
+    user_id: int,
+    scope: str = "global",
+    link_id: int | None = None,
+    contact_id: int | None = None,
+) -> tuple[bool, str]:
+    """Inserta o actualiza un número restringido a nivel global, link o contacto."""
     normalized = normalize_phone(phone)
     if not normalized:
         return False, "Ingresa un número válido."
 
+    scope_value = (scope or "global").strip().lower()
+    if scope_value not in {"global", "link", "contact"}:
+        return False, "Alcance inválido para la restricción."
+
+    if scope_value == "link" and not link_id:
+        return False, "Selecciona un link para guardar una restricción por link."
+    if scope_value == "contact" and not contact_id:
+        return False, "Selecciona un contacto para guardar una restricción por contacto."
+    target_link_id = int(link_id) if link_id is not None else None
+    target_contact_id = int(contact_id) if contact_id is not None else None
+
     existed = False
     with get_connection() as con:
         cur = con.cursor()
-        cur.execute(
-            "SELECT 1 FROM contactos_restringidos WHERE telefono_normalizado = ?",
-            (normalized,),
-        )
-        existed = cur.fetchone() is not None
-        cur.execute(
-            """
-            INSERT INTO contactos_restringidos (telefono_normalizado, telefono_original, motivo, created_at, created_by)
-            VALUES (?, ?, ?, ?, ?)
-            ON CONFLICT(telefono_normalizado) DO UPDATE SET
-                telefono_original = excluded.telefono_original,
-                motivo = excluded.motivo,
-                created_at = excluded.created_at,
-                created_by = excluded.created_by
-            """,
-            (
-                normalized,
-                phone.strip(),
-                motivo.strip(),
-                datetime.datetime.now(datetime.UTC).isoformat(timespec='seconds'),
-                user_id,
-            ),
-        )
+        if scope_value == "global":
+            cur.execute(
+                "SELECT 1 FROM contactos_restringidos WHERE telefono_normalizado = ?",
+                (normalized,),
+            )
+            existed = cur.fetchone() is not None
+            cur.execute(
+                """
+                INSERT INTO contactos_restringidos (telefono_normalizado, telefono_original, motivo, created_at, created_by)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(telefono_normalizado) DO UPDATE SET
+                    telefono_original = excluded.telefono_original,
+                    motivo = excluded.motivo,
+                    created_at = excluded.created_at,
+                    created_by = excluded.created_by
+                """,
+                (
+                    normalized,
+                    phone.strip(),
+                    motivo.strip(),
+                    datetime.datetime.now(datetime.UTC).isoformat(timespec='seconds'),
+                    user_id,
+                ),
+            )
+        elif scope_value == "link":
+            cur.execute(
+                "SELECT 1 FROM contactos_restringidos_link WHERE telefono_normalizado = ? AND link_id = ?",
+                (normalized, target_link_id),
+            )
+            existed = cur.fetchone() is not None
+            cur.execute(
+                """
+                INSERT INTO contactos_restringidos_link (telefono_normalizado, telefono_original, link_id, motivo, created_at, created_by)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(telefono_normalizado, link_id) DO UPDATE SET
+                    telefono_original = excluded.telefono_original,
+                    motivo = excluded.motivo,
+                    created_at = excluded.created_at,
+                    created_by = excluded.created_by
+                """,
+                (
+                    normalized,
+                    phone.strip(),
+                    target_link_id,
+                    motivo.strip(),
+                    datetime.datetime.now(datetime.UTC).isoformat(timespec='seconds'),
+                    user_id,
+                ),
+            )
+        else:
+            cur.execute(
+                "SELECT 1 FROM contactos_restringidos_contacto WHERE contact_id = ?",
+                (target_contact_id,),
+            )
+            existed = cur.fetchone() is not None
+            cur.execute(
+                """
+                INSERT INTO contactos_restringidos_contacto (telefono_normalizado, telefono_original, contact_id, motivo, created_at, created_by)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(contact_id) DO UPDATE SET
+                    telefono_normalizado = excluded.telefono_normalizado,
+                    telefono_original = excluded.telefono_original,
+                    motivo = excluded.motivo,
+                    created_at = excluded.created_at,
+                    created_by = excluded.created_by
+                """,
+                (
+                    normalized,
+                    phone.strip(),
+                    target_contact_id,
+                    motivo.strip(),
+                    datetime.datetime.now(datetime.UTC).isoformat(timespec='seconds'),
+                    user_id,
+                ),
+            )
         con.commit()
-    message = "Número actualizado en la lista restringida." if existed else "Número agregado a la lista restringida."
+    if scope_value == "global":
+        message = "Número actualizado en la lista restringida global." if existed else "Número agregado a la lista restringida global."
+    elif scope_value == "link":
+        message = "Número actualizado en la lista restringida del link." if existed else "Número agregado a la lista restringida del link."
+    else:
+        message = "Contacto actualizado en la lista restringida por contacto." if existed else "Contacto agregado a la lista restringida por contacto."
     return True, message
 
 
@@ -1336,34 +1865,48 @@ def get_contacts_by_phone(phone: str) -> pd.DataFrame:
 def fetch_contacts_for_link(link_id: int, filters: dict | None = None, include_restricted: bool = False) -> pd.DataFrame:
     """Recupera contactos asociados a un link aplicando filtros opcionales."""
     filters = filters or {}
-    clauses = ["SELECT * FROM contactos WHERE id_link = ?"]
+    clauses = [
+        """
+        SELECT c.*, l.marca, l.descripcion as link_desc
+        FROM contactos c
+        LEFT JOIN links_contactos l ON c.id_link = l.id
+        WHERE c.id_link = ?
+        """
+    ]
     params: list = [link_id]
 
     nombre = filters.get('nombre')
     if nombre:
-        clauses.append("AND nombre LIKE ?")
+        clauses.append("AND c.nombre LIKE ?")
         params.append(f"%{nombre}%")
 
     auto = filters.get('auto')
     if auto:
-        clauses.append("AND auto LIKE ?")
+        clauses.append("AND c.auto LIKE ?")
         params.append(f"%{auto}%")
 
     telefono = filters.get('telefono')
     if telefono:
         phone_filter = f"%{telefono}%"
         normalized_filter = normalize_phone(telefono)
-        clauses.append("AND (telefono LIKE ?" + (" OR normalize_phone(telefono) LIKE ?" if normalized_filter else "") + ")")
+        clauses.append("AND (c.telefono LIKE ?" + (" OR normalize_phone(c.telefono) LIKE ?" if normalized_filter else "") + ")")
         params.append(phone_filter)
         if normalized_filter:
             params.append(f"%{normalized_filter}%")
 
     if not include_restricted:
         clauses.append(
-            "AND NOT EXISTS (SELECT 1 FROM contactos_restringidos r WHERE r.telefono_normalizado = normalize_phone(telefono))"
+            "AND NOT EXISTS (SELECT 1 FROM contactos_restringidos r WHERE r.telefono_normalizado = normalize_phone(c.telefono))"
         )
+        clauses.append(
+            "AND NOT EXISTS (SELECT 1 FROM contactos_restringidos_link rl WHERE rl.telefono_normalizado = normalize_phone(c.telefono) AND rl.link_id = ?)"
+        )
+        clauses.append(
+            "AND NOT EXISTS (SELECT 1 FROM contactos_restringidos_contacto rc WHERE rc.contact_id = c.id)"
+        )
+        params.append(int(link_id))
 
-    clauses.append("ORDER BY id DESC")
+    clauses.append("ORDER BY c.id DESC")
     query = " ".join(clauses)
     return read_query(query, params=params)
 
@@ -1391,12 +1934,12 @@ def authenticate_user(username: str, password: str):
     with get_connection() as con:
         cur = con.cursor()
         cur.execute(
-            "SELECT id, role FROM users WHERE username=? AND password_hash=?",
+            "SELECT id, username, role FROM users WHERE username=? AND password_hash=?",
             (username.strip(), hash_password(password)),
         )
         row = cur.fetchone()
         if row:
-            return {"id": row[0], "role": row[1]}
+            return {"id": row[0], "username": row[1], "role": row[2]}
     return None
 
 
@@ -1410,7 +1953,7 @@ def delete_user(user_id: int):
 def fetch_all_contacts_for_user(user: dict) -> pd.DataFrame:
     """Recupera TODOS los contactos visibles para el usuario (Admin: todos, User: los suyos)."""
     import pandas as pd # Ensure pd is available here if needed, though it is imported at top
-    if user['role'] == 'admin':
+    if has_admin_access(user):
         # Admin ve todo. Join con links para tener datos extra si se requiere, o directo.
         query = """
             SELECT c.*, l.marca, l.descripcion as link_desc 
@@ -1445,126 +1988,12 @@ def ensure_default_users():
                 "INSERT OR IGNORE INTO users (username, password_hash, role) VALUES (?, ?, ?)",
                 ("test", hash_password("test"), "user"),
             )
-        con.commit()
-
-create_tables()
-migrate_contactos_schema()
-migrate_contactos_link_id_values()
-migrate_user_schema()
-ensure_default_users()
-
-
-def fetch_contacts_for_link(link_id: int, filters: dict | None = None, include_restricted: bool = False) -> pd.DataFrame:
-    """Recupera contactos asociados a un link aplicando filtros opcionales."""
-    filters = filters or {}
-    clauses = ["SELECT * FROM contactos WHERE id_link = ?"]
-    params: list = [link_id]
-
-    nombre = filters.get('nombre')
-    if nombre:
-        clauses.append("AND nombre LIKE ?")
-        params.append(f"%{nombre}%")
-
-    auto = filters.get('auto')
-    if auto:
-        clauses.append("AND auto LIKE ?")
-        params.append(f"%{auto}%")
-
-    telefono = filters.get('telefono')
-    if telefono:
-        phone_filter = f"%{telefono}%"
-        normalized_filter = normalize_phone(telefono)
-        clauses.append("AND (telefono LIKE ?" + (" OR normalize_phone(telefono) LIKE ?" if normalized_filter else "") + ")")
-        params.append(phone_filter)
-        if normalized_filter:
-            params.append(f"%{normalized_filter}%")
-
-    if not include_restricted:
-        clauses.append(
-            "AND NOT EXISTS (SELECT 1 FROM contactos_restringidos r WHERE r.telefono_normalizado = normalize_phone(telefono))"
-        )
-
-    clauses.append("ORDER BY id DESC")
-    query = " ".join(clauses)
-    return read_query(query, params=params)
-
-# =============================================================================
-# FUNCIONES DE USUARIOS
-# =============================================================================
-def hash_password(password: str) -> str:
-    return hashlib.sha256(password.encode()).hexdigest()
-
-
-def create_user(username: str, password: str, role: str = "user"):
-    """Crea un nuevo usuario y retorna su id."""
-    with get_connection() as con:
-        cur = con.cursor()
-        cur.execute(
-            "INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)",
-            (username.strip(), hash_password(password), role),
-        )
-        con.commit()
-        return cur.lastrowid
-
-
-def authenticate_user(username: str, password: str):
-    """Retorna el usuario si las credenciales son correctas."""
-    with get_connection() as con:
-        cur = con.cursor()
-        cur.execute(
-            "SELECT id, role FROM users WHERE username=? AND password_hash=?",
-            (username.strip(), hash_password(password)),
-        )
-        row = cur.fetchone()
-        if row:
-            return {"id": row[0], "role": row[1]}
-    return None
-
-
-def delete_user(user_id: int):
-    with get_connection() as con:
-        con.execute("DELETE FROM users WHERE id=?", (user_id,))
-        con.commit()
-
-
-
-def fetch_all_contacts_for_user(user: dict) -> pd.DataFrame:
-    """Recupera TODOS los contactos visibles para el usuario (Admin: todos, User: los suyos)."""
-    import pandas as pd # Ensure pd is available here if needed, though it is imported at top
-    if user['role'] == 'admin':
-        # Admin ve todo. Join con links para tener datos extra si se requiere, o directo.
-        query = """
-            SELECT c.*, l.marca, l.descripcion as link_desc 
-            FROM contactos c 
-            LEFT JOIN links_contactos l ON c.id_link = l.id
-            ORDER BY c.id DESC
-        """
-        return read_query(query)
-    else:
-        # User ve solo sus contactos
-        query = """
-            SELECT c.*, l.marca, l.descripcion as link_desc
-            FROM contactos c 
-            JOIN links_contactos l ON c.id_link = l.id 
-            WHERE l.user_id = ?
-            ORDER BY c.id DESC
-        """
-        return read_query(query, params=[user['id']])
-
-def ensure_default_users():
-    """Crea un usuario administrador y uno de prueba si no existen."""
-    with get_connection() as con:
-        cur = con.cursor()
-        cur.execute("SELECT COUNT(*) FROM users WHERE role='admin'")
-        admin_count = cur.fetchone()[0]
-        if admin_count == 0:
-            cur.execute(
-                "INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)",
-                ("admin", hash_password("admin"), "admin"),
-            )
+        cur.execute("SELECT COUNT(*) FROM users WHERE role='superadmin'")
+        superadmin_count = cur.fetchone()[0]
+        if superadmin_count == 0:
             cur.execute(
                 "INSERT OR IGNORE INTO users (username, password_hash, role) VALUES (?, ?, ?)",
-                ("test", hash_password("test"), "user"),
+                ("superadmin", hash_password("superadmin"), "superadmin"),
             )
         con.commit()
 
@@ -1573,6 +2002,7 @@ migrate_contactos_schema()
 migrate_contactos_link_id_values()
 migrate_user_schema()
 ensure_default_users()
+
 
 # =============================================================================
 # FUNCIONES DE SCRAPING
@@ -1683,10 +2113,15 @@ def scrape_vehicle_details(url):
 def load_brands_list() -> list[str]:
     """Carga la lista de marcas desde el archivo JSON."""
     try:
-        # Intenta cargar desde la raíz del proyecto
-        json_path = resource_path(os.path.join("docs", "marcas.json"))
-        if not os.path.exists(json_path):
-             return []
+        candidate_paths = [
+            resource_path(os.path.join("docs", "marcas.json")),
+            os.path.join(get_runtime_base_dir(), "docs", "marcas.json"),
+            os.path.abspath(os.path.join("docs", "marcas.json")),
+        ]
+        json_path = next((p for p in candidate_paths if os.path.exists(p)), None)
+        if not json_path:
+            st.warning("No se encontró docs/marcas.json. Se aplicará marca por fallback de link.")
+            return []
         with open(json_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
         return data.get('marcas', [])
@@ -1750,6 +2185,10 @@ def prepare_export_dataframe(df_source: pd.DataFrame) -> pd.DataFrame:
         # Parsing de auto
         raw_auto = row.get('auto', '')
         year, brand, model = parse_auto_details(raw_auto, brands)
+        if brand == "Unknown":
+            fallback_brand = str(row.get('marca', '')).strip() or str(row.get('link_marca', '')).strip()
+            if fallback_brand:
+                brand = fallback_brand
         
         # Normalización de teléfono a E.164 (asumiendo +569 por defecto si es chileno, o manteniendo lo que hay)
         # La función normalize_phone del sistema devuelve 9 dígitos. Agregamos +56.
@@ -1768,6 +2207,100 @@ def prepare_export_dataframe(df_source: pd.DataFrame) -> pd.DataFrame:
         })
         
     return pd.DataFrame(export_rows)
+
+
+def apply_vehicle_export_filters(
+    df_export: pd.DataFrame,
+    selected_brands: list[str] | None = None,
+    year_range: tuple[int, int] | None = None,
+    include_missing_year: bool = False,
+) -> pd.DataFrame:
+    """Filtra un DataFrame de exportación por marca y rango de año del vehículo."""
+    if df_export.empty:
+        return df_export
+
+    selected_brands = selected_brands or []
+    filtered = df_export
+
+    if selected_brands:
+        brands_clean = {str(v).strip() for v in selected_brands}
+        filtered = filtered[filtered["Marca"].fillna("").astype(str).str.strip().isin(brands_clean)]
+
+    year_series = filtered["Año"].fillna("").astype(str).str.strip()
+    numeric_years = pd.to_numeric(year_series, errors="coerce")
+    has_numeric_year = numeric_years.notna()
+
+    if year_range:
+        min_year, max_year = year_range
+        year_in_range = (numeric_years >= int(min_year)) & (numeric_years <= int(max_year))
+        year_mask = year_in_range
+        if include_missing_year:
+            year_mask = year_mask | (~has_numeric_year)
+        filtered = filtered[year_mask]
+    elif not include_missing_year:
+        filtered = filtered[has_numeric_year]
+
+    return filtered
+
+
+def _vehicle_filter_options(df_export: pd.DataFrame) -> tuple[list[str], list[str]]:
+    """Retorna opciones de filtro para marca y año, incluyendo valores sin dato."""
+    if df_export.empty:
+        return [], []
+
+    brands = sorted(
+        {
+            str(v).strip()
+            for v in df_export["Marca"].fillna("").tolist()
+        },
+        key=lambda val: (val == "", val.casefold()),
+    )
+
+    raw_years = {str(v).strip() for v in df_export["Año"].fillna("").tolist()}
+    years_with_digits = sorted([v for v in raw_years if v.isdigit()], key=int, reverse=True)
+    years_without_digits = sorted([v for v in raw_years if not v.isdigit()], key=str.casefold)
+    years = years_with_digits + years_without_digits
+    return brands, years
+
+
+def _vehicle_year_bounds(df_export: pd.DataFrame) -> tuple[int | None, int | None]:
+    """Obtiene el menor y mayor año numérico disponible para el filtro por rango."""
+    if df_export.empty:
+        return None, None
+    years = pd.to_numeric(df_export["Año"].fillna("").astype(str).str.strip(), errors="coerce").dropna()
+    if years.empty:
+        return None, None
+    years_int = years.astype(int)
+    return int(years_int.min()), int(years_int.max())
+
+
+def _year_range_tag(year_range: tuple[int, int] | None, include_missing_year: bool) -> str:
+    if not year_range:
+        return "sin-anio" if include_missing_year else ""
+    year_min, year_max = year_range
+    base = f"{int(year_min)}-{int(year_max)}"
+    return f"{base}-con-sin-anio" if include_missing_year else base
+
+
+def _compact_filter_tag(values: list[str], fallback_prefix: str) -> str:
+    clean_values = [str(v).strip() for v in values if str(v).strip()]
+    if not clean_values:
+        return ""
+    if len(clean_values) == 1:
+        token = re.sub(r"[^A-Za-z0-9_-]+", "-", clean_values[0].lower()).strip("-")
+        return token[:24]
+    return f"{fallback_prefix}-{len(clean_values)}"
+
+
+def build_export_filename(prefix: str, selected_brands: list[str], year_tag: str, ext: str) -> str:
+    """Construye nombres de archivo con segmentos de filtros para trazabilidad."""
+    tag_brand = _compact_filter_tag(selected_brands, "marcas")
+    segments = [prefix, datetime.date.today().isoformat()]
+    if tag_brand:
+        segments.append(tag_brand)
+    if year_tag:
+        segments.append(year_tag)
+    return "_".join(segments) + f".{ext}"
 
 # =============================================================================
 # FUNCIONES DE ACTUALIZACIÓN Y ELIMINACIÓN EN LA BASE DE DATOS
@@ -1839,9 +2372,57 @@ def update_contact(contact_id, link_auto, telefono, nombre, auto, precio, descri
         return False
 
 
+def get_contact_for_user(contact_id: int, user: dict[str, Any]) -> pd.DataFrame:
+    """Obtiene un contacto por id respetando visibilidad por rol."""
+    if has_admin_access(user):
+        return read_query("SELECT * FROM contactos WHERE id = ?", params=[contact_id])
+    query = (
+        "SELECT c.* FROM contactos c "
+        "JOIN links_contactos l ON c.id_link = l.id "
+        "WHERE c.id = ? AND l.user_id = ?"
+    )
+    return read_query(query, params=[contact_id, user["id"]])
+
+
+def reassign_contact_to_link(contact_id: int, target_link_id: int, user: dict[str, Any]) -> tuple[bool, str]:
+    """Reasigna un contacto existente a otro link con validación de permisos."""
+    with get_connection() as con:
+        cur = con.cursor()
+        cur.execute(
+            """
+            SELECT c.id, c.id_link, l.user_id
+            FROM contactos c
+            LEFT JOIN links_contactos l ON c.id_link = l.id
+            WHERE c.id = ?
+            """,
+            (contact_id,),
+        )
+        contact_row = cur.fetchone()
+        if not contact_row:
+            return False, "No se encontró el contacto a reasignar."
+
+        cur.execute("SELECT id, user_id FROM links_contactos WHERE id = ?", (target_link_id,))
+        target_link_row = cur.fetchone()
+        if not target_link_row:
+            return False, "El link de destino no existe."
+
+        if not has_admin_access(user):
+            source_owner = contact_row[2]
+            target_owner = target_link_row[1]
+            if source_owner != user.get("id") or target_owner != user.get("id"):
+                return False, "No tienes permisos para reasignar este contacto a ese link."
+
+        if contact_row[1] == target_link_id:
+            return False, "El contacto ya está asociado al link seleccionado."
+
+        cur.execute("UPDATE contactos SET id_link = ? WHERE id = ?", (int(target_link_id), int(contact_id)))
+        con.commit()
+    return True, "Contacto reasignado correctamente al link seleccionado."
+
+
 def search_contacts(phone_query, user):
     """Busca contactos filtrando por teléfono y rol del usuario."""
-    if user["role"] == "admin":
+    if has_admin_access(user):
         query = "SELECT * FROM contactos WHERE telefono LIKE ?"
         params = [f"%{phone_query}%"]
     else:
@@ -2088,10 +2669,24 @@ def generate_html(df, message_template):
 def render_edit_contactos_tab() -> None:
     """Renderiza el tab para editar contactos existentes."""
     st.subheader("Editar contactos por teléfono")
-    phone_query = st.text_input("Ingrese parte o el número completo del teléfono a buscar")
-    if not phone_query:
-        return
-    df_search = search_contacts(phone_query, st.session_state['user'])
+    user = st.session_state['user']
+    target_contact_id = st.session_state.get("edit_contact_id_target")
+
+    if target_contact_id:
+        st.caption(f"Edición directa del contacto ID {int(target_contact_id)}")
+        df_search = get_contact_for_user(int(target_contact_id), user)
+        if st.button("Salir de edición directa", key="clear_edit_contact_target"):
+            st.session_state.pop("edit_contact_id_target", None)
+            st.rerun()
+    else:
+        phone_query = st.text_input(
+            "Ingrese parte o el número completo del teléfono a buscar",
+            key="edit_phone_lookup",
+        )
+        if not phone_query:
+            return
+        df_search = search_contacts(phone_query, user)
+
     if df_search.empty:
         st.warning("No se encontraron contactos para ese número.")
         return
@@ -2144,7 +2739,7 @@ def render_edit_contactos_tab() -> None:
 def render_edit_links_tab() -> None:
     """Renderiza el tab para editar enlaces existentes."""
     st.subheader("Editar Links")
-    if st.session_state['user']['role'] == 'admin':
+    if has_admin_access(st.session_state['user']):
         df_links = read_query("SELECT * FROM links_contactos")
     else:
         df_links = read_query(
@@ -2173,7 +2768,7 @@ def render_edit_links_tab() -> None:
         new_marca = st.text_input("Marca", value=selected_link["marca"])
         new_descripcion = st.text_area("Descripción", value=selected_link["descripcion"])
         new_user_id = None
-        if st.session_state['user']['role'] == 'admin':
+        if has_admin_access(st.session_state['user']):
             users_df = read_query("SELECT id, username FROM users")
             user_opts = users_df.apply(lambda r: f"{r['id']} - {r['username']}", axis=1)
             if selected_link['user_id'] is not None and selected_link['user_id'] in users_df['id'].values:
@@ -2250,11 +2845,205 @@ def render_edit_tabs() -> None:
     with tab_mensajes:
         render_edit_mensajes_tab()
 
+
+def render_superadmin_multidb_page() -> None:
+    """Renderiza la vista de consolidación para dos bases de datos externas."""
+    user = st.session_state.get("user")
+    if not user or str(user.get("role", "")).lower() != "superadmin":
+        st.warning("Esta vista requiere rol superadmin.")
+        return
+
+    render_page_header(
+        "SuperAdmin Multi-BD",
+        "Carga dos bases locales, consolida resultados y exporta lo que necesites.",
+        "🗄️",
+    )
+    ensure_multi_db_storage()
+
+    with st.expander("Guía rápida de operación", expanded=False):
+        st.markdown(
+            """
+            1. Usa un alias estable por origen (`norte`, `sur`) y mantén ese nombre siempre.
+            2. Sube una nueva BD al mismo alias para reemplazar la versión activa.
+            3. El sistema crea respaldo automático en `data/multi_db_sources/archive/`.
+            4. Selecciona dos fuentes diferentes, prepara consolidado y aplica filtros.
+            5. Exporta CSV/Excel según el análisis requerido.
+            """
+        )
+
+    with st.expander("Registrar o actualizar una base fuente", expanded=False):
+        with st.form("superadmin_upload_db_form"):
+            alias = st.text_input("Alias técnico", placeholder="Ej: norte o sur")
+            label = st.text_input("Nombre visible", placeholder="Ej: Sucursal Norte")
+            uploaded_db = st.file_uploader(
+                "Archivo SQLite (.db)",
+                type=["db"],
+                key="superadmin_db_uploader",
+            )
+            submit_upload = st.form_submit_button("Guardar fuente")
+        if submit_upload:
+            ok, message = save_uploaded_source_db(uploaded_db, alias, label)
+            if ok:
+                st.success(message)
+                st.rerun()
+            else:
+                st.error(message)
+
+    sources = list_multi_db_sources()
+    if not sources:
+        st.info("Aún no hay fuentes registradas. Sube al menos dos archivos .db para comenzar.")
+        return
+
+    source_rows = [
+        {
+            "Alias": src["alias"],
+            "Nombre": src["label"],
+            "Ruta": src["path"],
+            "Última actualización": src["updated_at"],
+        }
+        for src in sources
+    ]
+    st.dataframe(pd.DataFrame(source_rows), use_container_width=True)
+
+    with st.expander("Mantenimiento de respaldos", expanded=False):
+        backup_choices = [f"{src['label']} ({src['alias']})" for src in sources]
+        backup_alias_by_label = {f"{src['label']} ({src['alias']})": src["alias"] for src in sources}
+        selected_backup_label = st.selectbox(
+            "Fuente para limpiar respaldos",
+            backup_choices,
+            key="superadmin_backup_alias",
+        )
+        backup_alias = backup_alias_by_label[selected_backup_label]
+        current_backup_count = len(list_source_backups(backup_alias))
+        keep_count = st.number_input(
+            "Mantener últimos respaldos",
+            min_value=0,
+            max_value=200,
+            value=15,
+            step=1,
+            key="superadmin_backup_keep_count",
+        )
+        st.caption(f"Respaldos actuales para este alias: {current_backup_count}")
+        if st.button("Limpiar respaldos antiguos", key="superadmin_cleanup_backups", use_container_width=True):
+            removed = prune_source_backups(backup_alias, keep=int(keep_count))
+            st.success(
+                f"Limpieza completada: se eliminaron {removed} respaldo(s) y se conservaron los más recientes."
+            )
+            st.rerun()
+
+    if len(sources) < 2:
+        st.info("Necesitas al menos 2 fuentes para consolidar.")
+        return
+
+    option_labels = [f"{src['label']} ({src['alias']})" for src in sources]
+    alias_by_label = {f"{src['label']} ({src['alias']})": src["alias"] for src in sources}
+
+    col_a, col_b = st.columns(2)
+    with col_a:
+        selected_a_label = st.selectbox("Fuente A", option_labels, key="superadmin_source_a")
+    with col_b:
+        default_b_idx = 1 if len(option_labels) > 1 else 0
+        selected_b_label = st.selectbox("Fuente B", option_labels, index=default_b_idx, key="superadmin_source_b")
+
+    selected_a = alias_by_label[selected_a_label]
+    selected_b = alias_by_label[selected_b_label]
+    if selected_a == selected_b:
+        st.warning("Debes seleccionar dos fuentes diferentes.")
+        return
+
+    source_map = {src["alias"]: src for src in sources}
+    selected_sources = [source_map[selected_a], source_map[selected_b]]
+
+    invalid_sources = []
+    for src in selected_sources:
+        is_valid, msg = validate_external_db_schema(str(src["path"]))
+        if not is_valid:
+            invalid_sources.append(f"{src['label']}: {msg}")
+    if invalid_sources:
+        for message in invalid_sources:
+            st.error(message)
+        return
+
+    if st.button("Preparar consolidado", use_container_width=True):
+        with st.spinner("Consolidando datos desde ambas bases..."):
+            st.session_state["superadmin_multidb_df"] = build_superadmin_multidb_export_dataframe(selected_sources)
+
+    combined_df = st.session_state.get("superadmin_multidb_df")
+    if not isinstance(combined_df, pd.DataFrame) or combined_df.empty:
+        st.info("Aún no hay datos consolidados. Usa el botón 'Preparar consolidado'.")
+        return
+
+    source_filter_options = sorted(combined_df["Origen"].dropna().astype(str).unique().tolist())
+    brand_options, _ = _vehicle_filter_options(combined_df)
+    year_min, year_max = _vehicle_year_bounds(combined_df)
+
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        selected_origins = st.multiselect("Filtrar por origen", source_filter_options, key="superadmin_origin_filter")
+    with c2:
+        selected_brands = st.multiselect("Filtrar por marca", brand_options, key="superadmin_brand_filter")
+    with c3:
+        year_range = None
+        if year_min is not None and year_max is not None:
+            year_range = st.slider(
+                "Rango de año",
+                min_value=year_min,
+                max_value=year_max,
+                value=(year_min, year_max),
+                key="superadmin_year_range",
+            )
+        include_missing_year = st.checkbox("Incluir registros sin año", value=False, key="superadmin_missing_year")
+
+    filtered_df = combined_df
+    if selected_origins:
+        selected_origin_set = {str(v).strip() for v in selected_origins}
+        filtered_df = filtered_df[filtered_df["Origen"].astype(str).str.strip().isin(selected_origin_set)]
+    filtered_df = apply_vehicle_export_filters(filtered_df, selected_brands, year_range, include_missing_year)
+
+    st.caption(f"Registros listos para exportar: {len(filtered_df)} de {len(combined_df)}")
+    if filtered_df.empty:
+        st.warning("No hay datos para exportar con los filtros seleccionados.")
+        return
+
+    st.dataframe(filtered_df, use_container_width=True)
+
+    csv_data = filtered_df.to_csv(index=False).encode("utf-8-sig")
+    out_xlsx = BytesIO()
+    with pd.ExcelWriter(out_xlsx, engine="xlsxwriter") as writer:
+        filtered_df.to_excel(writer, index=False, sheet_name="Consolidado")
+
+    year_tag = _year_range_tag(year_range, include_missing_year)
+    csv_name = build_export_filename("SUPERADMIN_multidb", selected_brands, year_tag, "csv")
+    xlsx_name = build_export_filename("SUPERADMIN_multidb", selected_brands, year_tag, "xlsx")
+
+    export_col_1, export_col_2 = st.columns(2)
+    with export_col_1:
+        st.download_button(
+            "Descargar CSV consolidado",
+            data=csv_data,
+            file_name=csv_name,
+            mime="text/csv",
+            use_container_width=True,
+        )
+    with export_col_2:
+        st.download_button(
+            "Descargar Excel consolidado",
+            data=out_xlsx.getvalue(),
+            file_name=xlsx_name,
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+        )
+
 # =============================================================================
 # INTERFAZ DE USUARIO: MENÚ Y NAVEGACIÓN
 # =============================================================================
 if 'page' not in st.session_state:
-    st.session_state.page = "Login" if st.session_state['user'] is None else "Crear Link Contactos"
+    if st.session_state['user'] is None:
+        st.session_state.page = "Login"
+    elif str(st.session_state['user'].get("role", "")).lower() == "superadmin":
+        st.session_state.page = "SuperAdmin Multi-BD"
+    else:
+        st.session_state.page = "Crear Link Contactos"
 
 page = render_navigation_sidebar(st.session_state.page)
 st.session_state.page = page
@@ -2273,7 +3062,10 @@ if page == "Login":
         if user:
             st.session_state.user = user
             st.success("Autenticado")
-            st.session_state.page = "Crear Link Contactos"
+            if str(user.get("role", "")).lower() == "superadmin":
+                st.session_state.page = "SuperAdmin Multi-BD"
+            else:
+                st.session_state.page = "Crear Link Contactos"
             st.rerun()
         else:
             st.error("Credenciales inválidas")
@@ -2316,7 +3108,7 @@ if page == "Crear Link Contactos":
 # =============================================================================
 elif page == "Links Contactos":
     render_page_header("Links de contactos", "Consulta, edita y exporta los enlaces existentes.", "📚")
-    if st.session_state['user']['role'] == 'admin':
+    if has_admin_access(st.session_state['user']):
         df_links = read_query("SELECT * FROM links_contactos")
     else:
         df_links = read_query(
@@ -2356,7 +3148,7 @@ elif page == "Links Contactos":
                 new_marca = st.text_input("Marca", value=selected["marca"])
                 new_desc = st.text_area("Descripción", value=selected["descripcion"])
                 new_user_id = None
-                if st.session_state['user']['role'] == 'admin':
+                if has_admin_access(st.session_state['user']):
                     users_df = read_query("SELECT id, username FROM users")
                     user_options = users_df.apply(lambda r: f"{r['id']} - {r['username']}", axis=1)
                     if selected['user_id'] is not None and selected['user_id'] in users_df['id'].values:
@@ -2385,7 +3177,7 @@ elif page == "Links Contactos":
 # =============================================================================
 elif page == "Sanitizar Links":
     render_page_header("Sanitizar links", "Limpia URLs antes de compartirlas con clientes.", "🧹")
-    if st.session_state['user']['role'] != 'admin':
+    if not has_admin_access(st.session_state['user']):
         st.warning("Solo el administrador puede sanitizar enlaces.")
     else:
         if st.button("Sanitizar toda la base de datos"):
@@ -2401,7 +3193,7 @@ elif page == "Agregar Contactos":
     render_page_header("Agregar contactos", "Registra prospectos y relaciona cada contacto con su enlace.", "➕")
     if st.session_state.pop("contacto_agregado", False):
         st.success("Contacto agregado exitosamente.")
-    if st.session_state['user']['role'] == 'admin':
+    if has_admin_access(st.session_state['user']):
         df_links = read_query("SELECT * FROM links_contactos")
     else:
         df_links = read_query(
@@ -2454,13 +3246,62 @@ elif page == "Agregar Contactos":
             if existing_contact:
                 marca = existing_contact.get("marca") or "Sin marca"
                 descripcion = existing_contact.get("descripcion") or "Sin descripcion"
+                fecha_link = existing_contact.get("fecha_creacion_link") or "Sin fecha"
                 st.warning("El link del auto ya esta registrado en la base de datos.")
                 st.info(
                     f"Contacto existente ID {existing_contact['id']} | "
                     f"Telefono: {existing_contact.get('telefono') or 'Sin telefono'} | "
                     f"Auto: {existing_contact.get('auto') or 'Sin auto'} | "
-                    f"Link grupo: {marca} - {descripcion}"
+                    f"Link grupo: {marca} - {descripcion} | Fecha link: {fecha_link}"
                 )
+
+                col_view, col_edit, col_reassign, col_cancel = st.columns(4)
+                if col_view.button("Ver existente", key="dup_view_contact"):
+                    detalle_existente = read_query(
+                        """
+                        SELECT c.*, l.marca, l.descripcion AS link_descripcion, l.fecha_creacion
+                        FROM contactos c
+                        LEFT JOIN links_contactos l ON c.id_link = l.id
+                        WHERE c.id = ?
+                        """,
+                        params=[int(existing_contact["id"])],
+                    )
+                    st.dataframe(detalle_existente)
+
+                if col_edit.button("Editar", key="dup_edit_contact"):
+                    st.session_state["edit_contact_id_target"] = int(existing_contact["id"])
+                    st.session_state.page = "Editar"
+                    st.rerun()
+
+                if col_reassign.button("Reasignar", key="dup_reassign_contact"):
+                    st.session_state["pending_reassign_contact_id"] = int(existing_contact["id"])
+                    st.session_state["pending_reassign_target_link_id"] = int(link_id)
+
+                if col_cancel.button("Cancelar", key="dup_cancel_contact"):
+                    st.session_state["link_auto"] = ""
+                    st.session_state.pop("pending_reassign_contact_id", None)
+                    st.session_state.pop("pending_reassign_target_link_id", None)
+                    st.rerun()
+
+                pending_contact_id = st.session_state.get("pending_reassign_contact_id")
+                pending_target_link_id = st.session_state.get("pending_reassign_target_link_id")
+                if pending_contact_id and pending_target_link_id:
+                    st.warning(
+                        f"Confirma reasignación del contacto ID {pending_contact_id} al link ID {pending_target_link_id}."
+                    )
+                    if st.button("Confirmar reasignación", key="confirm_reassign_contact"):
+                        ok, msg = reassign_contact_to_link(
+                            int(pending_contact_id),
+                            int(pending_target_link_id),
+                            st.session_state["user"],
+                        )
+                        if ok:
+                            st.success(msg)
+                            st.session_state.pop("pending_reassign_contact_id", None)
+                            st.session_state.pop("pending_reassign_target_link_id", None)
+                            st.rerun()
+                        else:
+                            st.error(msg)
 
         col_scrape, _ = st.columns([1, 3])
         scrape_triggered = col_scrape.button("🔍 Obtener datos", key="btn_scrape")
@@ -2570,41 +3411,99 @@ elif page == "Ver Contactos & Exportar":
     # --- EXPORTACIÓN GLOBAL (NUEVO) ---
     with st.expander("🌍 Exportación Global (Toda la Base de Datos)", expanded=False):
         st.info("Descarga la tabla completa de contactos a los que tienes acceso.")
+        if "global_export_df" not in st.session_state:
+            st.session_state["global_export_df"] = None
+
         if st.button("Preparar Exportación Global"):
             with st.spinner("Cargando todos los contactos..."):
                 df_global = fetch_all_contacts_for_user(st.session_state['user'])
                 if df_global.empty:
+                    st.session_state["global_export_df"] = None
                     st.warning("No hay contactos disponibles para exportar.")
                 else:
-                    df_global_exp = prepare_export_dataframe(df_global)
-                    
-                    c_glob1, c_glob2 = st.columns(2)
-                    with c_glob1:
-                        csv_glob = df_global_exp.to_csv(index=False).encode('utf-8-sig')
-                        fname_glob_csv = f"TODOS_contactos_{datetime.date.today().isoformat()}.csv"
-                        st.download_button(
-                            "📄 Descargar Todo en CSV", 
-                            data=csv_glob, 
-                            file_name=fname_glob_csv, 
-                            mime="text/csv",
-                            use_container_width=True
-                        )
-                    with c_glob2:
-                        out_glob_xlsx = BytesIO()
-                        with pd.ExcelWriter(out_glob_xlsx, engine='xlsxwriter') as writer:
-                            df_global_exp.to_excel(writer, index=False, sheet_name='Todos_Contactos')
-                        fname_glob_xlsx = f"TODOS_contactos_{datetime.date.today().isoformat()}.xlsx"
-                        st.download_button(
-                            "📊 Descargar Todo en Excel", 
-                            data=out_glob_xlsx.getvalue(), 
-                            file_name=fname_glob_xlsx, 
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            use_container_width=True
-                        )
+                    st.session_state["global_export_df"] = prepare_export_dataframe(df_global)
+
+        df_global_exp = st.session_state.get("global_export_df")
+        if isinstance(df_global_exp, pd.DataFrame) and not df_global_exp.empty:
+            brand_options_global, _ = _vehicle_filter_options(df_global_exp)
+            year_min_global, year_max_global = _vehicle_year_bounds(df_global_exp)
+            col_global_brand, col_global_year = st.columns(2)
+            with col_global_brand:
+                selected_global_brands = st.multiselect(
+                    "Filtrar por Marca",
+                    brand_options_global,
+                    key="global_export_brands",
+                    format_func=lambda v: "Sin marca" if str(v).strip() == "" else str(v),
+                )
+            with col_global_year:
+                selected_global_year_range = None
+                if year_min_global is not None and year_max_global is not None:
+                    selected_global_year_range = st.slider(
+                        "Rango de Año",
+                        min_value=year_min_global,
+                        max_value=year_max_global,
+                        value=(year_min_global, year_max_global),
+                        key="global_export_year_range",
+                    )
+                else:
+                    st.caption("No hay años numéricos detectados para aplicar rango.")
+                include_missing_global_year = st.checkbox(
+                    "Incluir registros sin año",
+                    value=False,
+                    key="global_export_include_missing_year",
+                )
+
+            df_global_filtered = apply_vehicle_export_filters(
+                df_global_exp,
+                selected_global_brands,
+                selected_global_year_range,
+                include_missing_global_year,
+            )
+            global_year_tag = _year_range_tag(selected_global_year_range, include_missing_global_year)
+            st.caption(
+                f"Segmento listo: {len(df_global_filtered)} de {len(df_global_exp)} contactos visibles."
+            )
+
+            if df_global_filtered.empty:
+                st.warning("No hay datos para exportar con los filtros seleccionados.")
+            else:
+                c_glob1, c_glob2 = st.columns(2)
+                with c_glob1:
+                    csv_glob = df_global_filtered.to_csv(index=False).encode('utf-8-sig')
+                    fname_glob_csv = build_export_filename(
+                        "TODOS_contactos",
+                        selected_global_brands,
+                        global_year_tag,
+                        "csv",
+                    )
+                    st.download_button(
+                        "📄 Descargar Todo en CSV", 
+                        data=csv_glob, 
+                        file_name=fname_glob_csv, 
+                        mime="text/csv",
+                        use_container_width=True
+                    )
+                with c_glob2:
+                    out_glob_xlsx = BytesIO()
+                    with pd.ExcelWriter(out_glob_xlsx, engine='xlsxwriter') as writer:
+                        df_global_filtered.to_excel(writer, index=False, sheet_name='Todos_Contactos')
+                    fname_glob_xlsx = build_export_filename(
+                        "TODOS_contactos",
+                        selected_global_brands,
+                        global_year_tag,
+                        "xlsx",
+                    )
+                    st.download_button(
+                        "📊 Descargar Todo en Excel", 
+                        data=out_glob_xlsx.getvalue(), 
+                        file_name=fname_glob_xlsx, 
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True
+                    )
     
     st.divider()
 
-    if st.session_state['user']['role'] == 'admin':
+    if has_admin_access(st.session_state['user']):
         df_links = read_query("SELECT * FROM links_contactos")
     else:
         df_links = read_query(
@@ -2648,33 +3547,85 @@ elif page == "Ver Contactos & Exportar":
             
             # Preparar DF una sola vez
             df_export = prepare_export_dataframe(df_contactos)
+
+            brand_options, _ = _vehicle_filter_options(df_export)
+            year_min, year_max = _vehicle_year_bounds(df_export)
+            col_filter_brand, col_filter_year = st.columns(2)
+            with col_filter_brand:
+                selected_brands = st.multiselect(
+                    "Segmentar por Marca",
+                    brand_options,
+                    key=f"export_brands_link_{link_id}",
+                    format_func=lambda v: "Sin marca" if str(v).strip() == "" else str(v),
+                )
+            with col_filter_year:
+                selected_year_range = None
+                if year_min is not None and year_max is not None:
+                    selected_year_range = st.slider(
+                        "Rango de Año",
+                        min_value=year_min,
+                        max_value=year_max,
+                        value=(year_min, year_max),
+                        key=f"export_year_range_link_{link_id}",
+                    )
+                else:
+                    st.caption("No hay años numéricos detectados para aplicar rango.")
+                include_missing_year = st.checkbox(
+                    "Incluir registros sin año",
+                    value=False,
+                    key=f"export_include_missing_year_link_{link_id}",
+                )
+
+            df_export_filtered = apply_vehicle_export_filters(
+                df_export,
+                selected_brands,
+                selected_year_range,
+                include_missing_year,
+            )
+            year_tag = _year_range_tag(selected_year_range, include_missing_year)
+            st.caption(
+                f"Segmento del link: {len(df_export_filtered)} de {len(df_export)} contactos disponibles."
+            )
+
+            if df_export_filtered.empty:
+                st.warning("No hay datos para exportar con la segmentación elegida.")
+                st.markdown("---")
+            else:
             
-            col_exp1, col_exp2 = st.columns(2)
-            with col_exp1:
-                # CSV
-                csv_data = df_export.to_csv(index=False).encode('utf-8-sig')
-                file_name_csv = f"contactos_{datetime.date.today().isoformat()}.csv"
-                st.download_button(
-                    label="📄 Exportar a CSV",
-                    data=csv_data,
-                    file_name=file_name_csv,
-                    mime="text/csv",
-                    use_container_width=True
-                )
-            with col_exp2:
-                # Excel
-                output_xlsx = BytesIO()
-                with pd.ExcelWriter(output_xlsx, engine='xlsxwriter') as writer:
-                    df_export.to_excel(writer, index=False, sheet_name='Contactos')
-                file_name_xlsx = f"contactos_{datetime.date.today().isoformat()}.xlsx"
-                st.download_button(
-                    label="📊 Exportar a Excel",
-                    data=output_xlsx.getvalue(),
-                    file_name=file_name_xlsx,
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True
-                )
-            st.markdown("---")
+                col_exp1, col_exp2 = st.columns(2)
+                with col_exp1:
+                    csv_data = df_export_filtered.to_csv(index=False).encode('utf-8-sig')
+                    file_name_csv = build_export_filename(
+                        "contactos",
+                        selected_brands,
+                        year_tag,
+                        "csv",
+                    )
+                    st.download_button(
+                        label="📄 Exportar a CSV",
+                        data=csv_data,
+                        file_name=file_name_csv,
+                        mime="text/csv",
+                        use_container_width=True
+                    )
+                with col_exp2:
+                    output_xlsx = BytesIO()
+                    with pd.ExcelWriter(output_xlsx, engine='xlsxwriter') as writer:
+                        df_export_filtered.to_excel(writer, index=False, sheet_name='Contactos')
+                    file_name_xlsx = build_export_filename(
+                        "contactos",
+                        selected_brands,
+                        year_tag,
+                        "xlsx",
+                    )
+                    st.download_button(
+                        label="📊 Exportar a Excel",
+                        data=output_xlsx.getvalue(),
+                        file_name=file_name_xlsx,
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True
+                    )
+                st.markdown("---")
 
         st.subheader("Contactos Registrados")
         mensajes_df = read_query(
@@ -2744,7 +3695,7 @@ elif page == "Ver Contactos & Exportar":
 # =============================================================================
 elif page == "CWS Chat WhatsApp":
     render_page_header("CWS Chat WhatsApp", "Genera mensajes personalizados listos para copiar en WhatsApp.", "💬")
-    if st.session_state['user']['role'] == 'admin':
+    if has_admin_access(st.session_state['user']):
         df_links = read_query("SELECT * FROM links_contactos")
     else:
         df_links = read_query(
@@ -2851,6 +3802,12 @@ elif page == "Mensajes":
         )
 
 # =============================================================================
+# PÁGINA: SUPERADMIN MULTI-BD
+# =============================================================================
+elif page == "SuperAdmin Multi-BD":
+    render_superadmin_multidb_page()
+
+# =============================================================================
 # PÁGINA: CLIENTES INTERESADOS
 # =============================================================================
 elif page == "Clientes Interesados":
@@ -2867,16 +3824,30 @@ elif page == "Editar":
 # PÁGINA: ADMIN USUARIOS
 # =============================================================================
 elif page == "Contactos Restringidos":
-    render_page_header("Contactos restringidos", "Gestiona el listado global de números excluidos de exportaciones.", "🚫")
-    if st.session_state['user']['role'] != 'admin':
+    render_page_header("Contactos restringidos", "Restringe por contacto específico o globalmente, sin bloquear sectores completos por defecto.", "🚫")
+    if not has_admin_access(st.session_state['user']):
         st.warning("Solo el administrador puede gestionar la lista de restricciones.")
     else:
         telefono_input = st.text_input("Número a restringir", key="restricted_phone_input")
         restricted_df = list_restricted_numbers()
+        scoped_restricted_df = list_restricted_numbers_by_contact()
+        all_restricted_df = list_all_restrictions()
         if 'restricted_reason' not in st.session_state:
             st.session_state['restricted_reason'] = ''
+        if 'restriction_scope' not in st.session_state:
+            st.session_state['restriction_scope'] = 'Solo este contacto'
         if st.session_state.pop('restricted_form_reset', False):
             st.session_state['restricted_reason'] = ''
+
+        scope_label = st.radio(
+            "Alcance de la restricción",
+            ["Solo este contacto", "Global (todos los links)"],
+            key="restriction_scope",
+            horizontal=True,
+        )
+        selected_scope = "contact" if scope_label == "Solo este contacto" else "global"
+
+        selected_contact_id = None
 
 
         normalized = normalize_phone(telefono_input) if telefono_input else ""
@@ -2890,17 +3861,47 @@ elif page == "Contactos Restringidos":
                     links_count = contacto_df['id_link'].dropna().nunique()
                     st.metric("Links asociados", int(links_count) if links_count else 0)
                     st.dataframe(contacto_df)
+                    if selected_scope == "contact":
+                        contacto_df['contact_display'] = contacto_df.apply(
+                            lambda row: (
+                                f"ID {int(row['id'])} | "
+                                f"{row.get('link_marca', '')} {row.get('link_descripcion', '')} | "
+                                f"{row.get('auto', '')} | "
+                                f"{row.get('link_auto', '')}"
+                            ),
+                            axis=1,
+                        )
+                        selected_contact_disp = st.selectbox(
+                            "Selecciona el contacto exacto a restringir",
+                            contacto_df['contact_display'],
+                            key="restricted_contact_scope",
+                        )
+                        selected_contact_row = contacto_df[contacto_df['contact_display'] == selected_contact_disp].iloc[0]
+                        selected_contact_id = int(selected_contact_row['id'])
             else:
                 st.warning("Ingresa un número con dígitos válidos.")
 
-        if normalized and not restricted_df.empty:
-            coincidencias = restricted_df[restricted_df['telefono_normalizado'] == normalized]
-            if not coincidencias.empty:
-                fila = coincidencias.iloc[0]
-                responsable = fila.get('created_by_username') or 'usuario desconocido'
-                st.info(
-                    f"El número ya está restringido desde {fila['created_at']} por {responsable}.",
-                )
+        if normalized:
+            if not restricted_df.empty:
+                coincidencias_global = restricted_df[restricted_df['telefono_normalizado'] == normalized]
+                if not coincidencias_global.empty:
+                    fila = coincidencias_global.iloc[0]
+                    responsable = fila.get('created_by_username') or 'usuario desconocido'
+                    st.info(
+                        f"El número ya está restringido GLOBALMENTE desde {fila['created_at']} por {responsable}.",
+                    )
+
+            if selected_scope == "contact" and selected_contact_id and not scoped_restricted_df.empty:
+                coincidencias_link = scoped_restricted_df[
+                    (scoped_restricted_df['telefono_normalizado'] == normalized)
+                    & (scoped_restricted_df['contact_id'] == selected_contact_id)
+                ]
+                if not coincidencias_link.empty:
+                    fila_link = coincidencias_link.iloc[0]
+                    responsable_link = fila_link.get('created_by_username') or 'usuario desconocido'
+                    st.info(
+                        f"El número ya está restringido para este contacto desde {fila_link['created_at']} por {responsable_link}.",
+                    )
 
         with st.form("restricted_number_form"):
             motivo = st.text_area(
@@ -2915,6 +3916,9 @@ elif page == "Contactos Restringidos":
                 telefono_input,
                 motivo,
                 st.session_state['user']['id'],
+                selected_scope,
+                None,
+                selected_contact_id,
             )
             if success:
                 st.success(message)
@@ -2923,24 +3927,135 @@ elif page == "Contactos Restringidos":
             else:
                 st.error(message)
 
-        st.subheader("Lista de números restringidos")
-        if restricted_df.empty:
+        st.subheader("Lista de restricciones")
+        if all_restricted_df.empty:
             st.info("No hay números restringidos registrados.")
         else:
-            display_df = restricted_df.rename(
+            filter_col1, filter_col2 = st.columns(2)
+            with filter_col1:
+                scope_filter = st.selectbox(
+                    "Filtrar por alcance",
+                    ["Todos", "Global", "Contacto", "Link"],
+                    key="restriction_scope_filter",
+                )
+            with filter_col2:
+                search_filter = st.text_input(
+                    "Buscar por teléfono/ID contacto",
+                    key="restriction_search_filter",
+                    placeholder="Ej: 998472202 o 123",
+                ).strip()
+
+            filtered_df = all_restricted_df.copy()
+            if scope_filter != "Todos":
+                scope_map = {"Global": "GLOBAL", "Contacto": "CONTACTO", "Link": "LINK"}
+                filtered_df = filtered_df[filtered_df["alcance"] == scope_map[scope_filter]]
+
+            if search_filter:
+                search_norm = normalize_phone(search_filter)
+                contact_search = pd.to_numeric(search_filter, errors="coerce")
+                mask = filtered_df["telefono_normalizado"].astype(str).str.contains(search_filter, na=False)
+                if search_norm:
+                    mask = mask | filtered_df["telefono_normalizado"].astype(str).str.contains(search_norm, na=False)
+                if pd.notna(contact_search):
+                    mask = mask | (filtered_df["contact_id"].fillna(-1).astype(int) == int(contact_search))
+                filtered_df = filtered_df[mask]
+
+            display_df = filtered_df.copy()
+            display_df["Alcance"] = "Global"
+            contact_mask = display_df["alcance"] == "CONTACTO"
+            link_mask = display_df["alcance"] == "LINK"
+
+            if contact_mask.any():
+                display_df.loc[contact_mask, "Alcance"] = (
+                    "Contacto especifico ("
+                    + display_df.loc[contact_mask, "link_marca"].fillna("").astype(str)
+                    + " "
+                    + display_df.loc[contact_mask, "link_descripcion"].fillna("").astype(str)
+                    + ")"
+                ).str.replace(r"\s+\)", ")", regex=True).str.strip()
+
+            if link_mask.any():
+                display_df.loc[link_mask, "Alcance"] = (
+                    "Link ID "
+                    + display_df.loc[link_mask, "link_id"].fillna(-1).astype(int).astype(str)
+                    + " - "
+                    + display_df.loc[link_mask, "link_marca"].fillna("").astype(str)
+                    + " "
+                    + display_df.loc[link_mask, "link_descripcion"].fillna("").astype(str)
+                ).str.strip()
+            display_df = display_df.rename(
                 columns={
                     'telefono_original': 'Teléfono',
                     'telefono_normalizado': 'Teléfono normalizado',
+                    'contact_id': 'ID contacto',
                     'motivo': 'Motivo',
                     'created_at': 'Registrado el',
                     'created_by_username': 'Registrado por',
                 }
             )
-            columnas = [col for col in ['Teléfono', 'Teléfono normalizado', 'Motivo', 'Registrado el', 'Registrado por'] if col in display_df.columns]
-            st.dataframe(display_df[columnas])
+            columnas = [
+                col
+                for col in [
+                    'Teléfono',
+                    'Teléfono normalizado',
+                    'ID contacto',
+                    'Alcance',
+                    'Motivo',
+                    'Registrado el',
+                    'Registrado por',
+                ]
+                if col in display_df.columns
+            ]
+            if display_df.empty:
+                st.info("No hay restricciones que coincidan con los filtros.")
+            else:
+                st.dataframe(display_df[columnas])
+
+            st.markdown("### Quitar restricción")
+            remove_df = filtered_df.copy().reset_index(drop=True)
+            if remove_df.empty:
+                st.info("No hay registros disponibles para eliminar con los filtros actuales.")
+            else:
+                remove_df['remove_label'] = (
+                    remove_df['alcance'].astype(str)
+                    + " | "
+                    + remove_df['telefono_normalizado'].astype(str)
+                    + " | "
+                    + remove_df['link_marca'].fillna('').astype(str)
+                    + " "
+                    + remove_df['link_descripcion'].fillna('').astype(str)
+                    + " | "
+                    + remove_df['created_at'].astype(str)
+                )
+                selected_remove_label = st.selectbox(
+                    "Selecciona la restricción a eliminar",
+                    remove_df['remove_label'],
+                    key="restriction_remove_selector",
+                )
+                selected_remove_row = remove_df[remove_df['remove_label'] == selected_remove_label].iloc[0]
+
+                confirm_remove = st.checkbox(
+                    "Confirmo que quiero eliminar esta restricción",
+                    key="restriction_remove_confirm",
+                )
+                if st.button("Eliminar restricción seleccionada", key="restriction_remove_button"):
+                    if not confirm_remove:
+                        st.warning("Debes confirmar antes de eliminar la restricción.")
+                    else:
+                        ok, msg = remove_restriction(
+                            str(selected_remove_row['alcance']),
+                            str(selected_remove_row['telefono_normalizado']),
+                            int(selected_remove_row['link_id']) if pd.notna(selected_remove_row['link_id']) else None,
+                            int(selected_remove_row['contact_id']) if pd.notna(selected_remove_row['contact_id']) else None,
+                        )
+                        if ok:
+                            st.success(msg)
+                            st.rerun()
+                        else:
+                            st.error(msg)
 
 elif page == "Admin Usuarios":
-    if st.session_state['user']['role'] != 'admin':
+    if not has_admin_access(st.session_state['user']):
         st.error("Acceso denegado")
     else:
         render_page_header("Administración de usuarios", "Gestiona cuentas y roles del equipo.", "🧑‍💼")
@@ -2950,7 +4065,7 @@ elif page == "Admin Usuarios":
         with st.form("crear_usuario_form"):
             new_user = st.text_input("Usuario")
             new_pass = st.text_input("Contraseña", type="password")
-            new_role = st.selectbox("Rol", ["user", "admin"])
+            new_role = st.selectbox("Rol", ["user", "admin", "superadmin"])
             submit_user = st.form_submit_button("Crear Usuario")
         if submit_user and new_user and new_pass:
             create_user(new_user, new_pass, new_role)

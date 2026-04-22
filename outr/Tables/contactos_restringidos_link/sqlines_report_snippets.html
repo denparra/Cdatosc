@@ -1,0 +1,227 @@
+<style type="text/css">
+body { font-family: verdana; }
+h1 { font-family: trebuchet ms, verdana; font-size: 20px; color: #000000; border-bottom:1px solid grey; }
+h2 { font-family: trebuchet ms, verdana; font-size: 18px; color: #000000; border-bottom:1px solid grey; }
+p { font-size: 13px; }
+table { font-size: 13px; border: 1px solid; border-collapse:collapse; }
+.report_tab tr:hover td { background-color: #A4BBFE; }
+.snippet_tab { width:100%; table-layout:fixed; overflow-wrap:break-word; word-wrap: break-word; word-break: break-word; }
+.snippet_num_col { width:auto; min-width: 10px;}
+.snippet_col { width:48%; }
+th { background: #FFFFFF; padding: 0px 10px 0px 10px; border: 1px solid grey; }
+td { padding: 0px 10px 0px 10px; border: 1px solid grey; }
+.td_warn { background:yellow; }
+.td_error { background:lightpink; }
+a:link { text-decoration: none; color: #0000A0;}
+a:visited { text-decoration: none; color: #0000A0;}
+a:active { text-decoration: none; color: #0000A0;}
+a:hover { text-decoration: none; color: #800517;}
+pre { white-space: pre-wrap; } 
+.token_kw { color:blue }
+.token_str { color:green }
+.token_num { color:brown }
+.token_dtype { color:maroon  }
+.token_symb { color:darkblue }
+.token_comment { color:grey }
+.token_func { color:blue }
+.token_udf { color:#8B0000 }
+.token_ok { background-color:#E0FFD2 }
+.token_error { background-color:#FFCCCB }
+.token_warn { background-color:#FFF380 }
+
+.dotted-underline {
+  display: inline-block; /* Required for width control */
+  position: relative;
+  padding-bottom: 1px; /* Space for the underline */
+}
+
+.dotted-underline::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 25%; /* Underline covers 25% of text width */
+  border-bottom: 1px dotted #333; /* Adjust color/style */
+}
+
+.tooltip { position: relative; display: inline-block; cursor: pointer; }
+.tooltip .tooltiptext {
+  visibility: hidden;
+  background-color: #fff;
+  color: #555;
+  font-family: verdana;
+  font-size: 11px; 
+  border-style: ridge;
+  border-radius: 6px;
+  padding: 5px 5px;
+  position: absolute;
+  z-index: 1;
+  left: 100%;           /* tooltip is placed on the right without any padding */
+  white-space: normal;
+  top: 50%;
+  opacity: 0;
+  transition: opacity 0.3s;
+  width: max-content;
+  margin-left: -10px;  /* tooltip sligthly overlaps on the right so we can easily go to link */
+  user-select: none;
+}
+.tooltip:hover .tooltiptext { visibility: visible; opacity: 1; }
+
+</style>
+
+<!------------------------------->
+
+<h2>Top-Level Statements by Type</h2>
+
+<p>Standalone top-level SQL statements by type excluding nested statements that appear inside other statements 
+(CREATE TABLE or INSERT inside CREATE PROCEDURE i.e.):</p>
+<a name="top_statements_by_type_table_Table"></a><p>Table</p><table class="snippet_tab"><colgroup><col class="snippet_num_col"><col class="snippet_col"><col class="snippet_col"></colgroup><thead><tr><th></th><th>Source</th><th>Target</th></tr></thead><tbody><tr><td valign="top">1</td><td valign="top"><pre><span class="token_comment">/* @SQLines(Filename - docs/migration/datos_consignacion_sqlite_dump.sql:26093) */</span>
+<span class="tooltip"><span class="dotted-underline"><span class="token_kw">CREATE</span></span><span class="tooltiptext"><b>CREATE</b> - Create table</span></span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">TABLE</span></span><span class="tooltiptext"><b>TABLE</b> - Create table</span></span> contactos_restringidos_link (
+                id <span class="token_kw">INTEGER</span> <span class="token_kw">PRIMARY</span> <span class="token_kw">KEY</span> <span class="token_error">AUTOINCREMENT</span>,
+                telefono_normalizado <span class="token_ok">TEXT</span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NOT</span></span><span class="tooltiptext"><b>NOT</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NULL</span></span><span class="tooltiptext"><b>NULL</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span>,
+                telefono_original <span class="token_ok">TEXT</span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NOT</span></span><span class="tooltiptext"><b>NOT</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NULL</span></span><span class="tooltiptext"><b>NULL</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span>,
+                link_id <span class="token_kw">INTEGER</span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NOT</span></span><span class="tooltiptext"><b>NOT</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NULL</span></span><span class="tooltiptext"><b>NULL</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span>,
+                motivo <span class="token_ok">TEXT</span>,
+                created_at <span class="token_ok">TEXT</span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NOT</span></span><span class="tooltiptext"><b>NOT</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NULL</span></span><span class="tooltiptext"><b>NULL</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span>,
+                created_by <span class="token_kw">INTEGER</span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NOT</span></span><span class="tooltiptext"><b>NOT</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NULL</span></span><span class="tooltiptext"><b>NULL</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span>,
+                <span class="token_kw">UNIQUE</span>(telefono_normalizado, link_id),
+                <span class="token_kw">FOREIGN</span> <span class="token_kw">KEY</span> (created_by) <span class="token_kw">REFERENCES</span> users(id),
+                <span class="token_kw">FOREIGN</span> <span class="token_kw">KEY</span> (link_id) <span class="token_kw">REFERENCES</span> links_contactos(id) <span class="token_kw">ON</span> <span class="token_kw">DELETE</span> <span class="token_error">CASCADE</span>
+            );</pre></td><td valign="top"><pre> 
+<span class="tooltip"><span class="dotted-underline"><span class="token_kw">CREATE</span></span><span class="tooltiptext"><b>CREATE</b> - Create table</span></span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">TABLE</span></span><span class="tooltiptext"><b>TABLE</b> - Create table</span></span> contactos_restringidos_link (
+                id <span class="token_kw">INTEGER</span> <span class="token_kw">PRIMARY</span> <span class="token_kw">KEY</span> <span class="token_error">AUTOINCREMENT</span>,
+                telefono_normalizado <span class="token_ok">VARCHAR</span><span class="token_ok">(max)</span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NOT</span></span><span class="tooltiptext"><b>NOT</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NULL</span></span><span class="tooltiptext"><b>NULL</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span>,
+                telefono_original <span class="token_ok">VARCHAR</span><span class="token_ok">(max)</span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NOT</span></span><span class="tooltiptext"><b>NOT</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NULL</span></span><span class="tooltiptext"><b>NULL</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span>,
+                link_id <span class="token_kw">INTEGER</span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NOT</span></span><span class="tooltiptext"><b>NOT</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NULL</span></span><span class="tooltiptext"><b>NULL</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span>,
+                motivo <span class="token_ok">VARCHAR</span><span class="token_ok">(max)</span>,
+                created_at <span class="token_ok">VARCHAR</span><span class="token_ok">(max)</span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NOT</span></span><span class="tooltiptext"><b>NOT</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NULL</span></span><span class="tooltiptext"><b>NULL</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span>,
+                created_by <span class="token_kw">INTEGER</span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NOT</span></span><span class="tooltiptext"><b>NOT</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NULL</span></span><span class="tooltiptext"><b>NULL</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span>,
+                <span class="token_kw">UNIQUE</span>(telefono_normalizado, link_id),
+                <span class="token_kw">FOREIGN</span> <span class="token_kw">KEY</span> (created_by) <span class="token_kw">REFERENCES</span> users(id),
+                <span class="token_kw">FOREIGN</span> <span class="token_kw">KEY</span> (link_id) <span class="token_kw">REFERENCES</span> links_contactos(id) <span class="token_kw">ON</span> <span class="token_kw">DELETE</span> <span class="token_error">CASCADE</span>
+            );</pre></td></tr>
+</tbody></table>
+
+
+<!------------------------------->
+
+<h2>All SQL Statements</h2>
+
+<p>Note that some statements can be nested within others (CREATE TABLE or INSERT inside CREATE PROCEDURE i.e. so issues, lines and other metrics cannot be summed): </p>
+<a name="statements_table_CREATE_TABLE"></a><p>CREATE TABLE - Create table</p><table class="snippet_tab"><colgroup><col class="snippet_num_col"><col class="snippet_col"><col class="snippet_col"></colgroup><thead><tr><th></th><th>Source</th><th>Target</th></tr></thead><tbody><tr><td valign="top">1</td><td valign="top"><pre><span class="token_comment">/* @SQLines(Filename - docs/migration/datos_consignacion_sqlite_dump.sql:26093) */</span>
+<span class="tooltip"><span class="dotted-underline"><span class="token_kw">CREATE</span></span><span class="tooltiptext"><b>CREATE</b> - Create table</span></span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">TABLE</span></span><span class="tooltiptext"><b>TABLE</b> - Create table</span></span> contactos_restringidos_link (
+                id <span class="token_kw">INTEGER</span> <span class="token_kw">PRIMARY</span> <span class="token_kw">KEY</span> <span class="token_error">AUTOINCREMENT</span>,
+                telefono_normalizado <span class="token_ok">TEXT</span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NOT</span></span><span class="tooltiptext"><b>NOT</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NULL</span></span><span class="tooltiptext"><b>NULL</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span>,
+                telefono_original <span class="token_ok">TEXT</span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NOT</span></span><span class="tooltiptext"><b>NOT</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NULL</span></span><span class="tooltiptext"><b>NULL</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span>,
+                link_id <span class="token_kw">INTEGER</span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NOT</span></span><span class="tooltiptext"><b>NOT</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NULL</span></span><span class="tooltiptext"><b>NULL</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span>,
+                motivo <span class="token_ok">TEXT</span>,
+                created_at <span class="token_ok">TEXT</span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NOT</span></span><span class="tooltiptext"><b>NOT</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NULL</span></span><span class="tooltiptext"><b>NULL</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span>,
+                created_by <span class="token_kw">INTEGER</span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NOT</span></span><span class="tooltiptext"><b>NOT</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NULL</span></span><span class="tooltiptext"><b>NULL</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span>,
+                <span class="token_kw">UNIQUE</span>(telefono_normalizado, link_id),
+                <span class="token_kw">FOREIGN</span> <span class="token_kw">KEY</span> (created_by) <span class="token_kw">REFERENCES</span> users(id),
+                <span class="token_kw">FOREIGN</span> <span class="token_kw">KEY</span> (link_id) <span class="token_kw">REFERENCES</span> links_contactos(id) <span class="token_kw">ON</span> <span class="token_kw">DELETE</span> <span class="token_error">CASCADE</span>
+            );</pre></td><td valign="top"><pre> 
+<span class="tooltip"><span class="dotted-underline"><span class="token_kw">CREATE</span></span><span class="tooltiptext"><b>CREATE</b> - Create table</span></span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">TABLE</span></span><span class="tooltiptext"><b>TABLE</b> - Create table</span></span> contactos_restringidos_link (
+                id <span class="token_kw">INTEGER</span> <span class="token_kw">PRIMARY</span> <span class="token_kw">KEY</span> <span class="token_error">AUTOINCREMENT</span>,
+                telefono_normalizado <span class="token_ok">VARCHAR</span><span class="token_ok">(max)</span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NOT</span></span><span class="tooltiptext"><b>NOT</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NULL</span></span><span class="tooltiptext"><b>NULL</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span>,
+                telefono_original <span class="token_ok">VARCHAR</span><span class="token_ok">(max)</span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NOT</span></span><span class="tooltiptext"><b>NOT</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NULL</span></span><span class="tooltiptext"><b>NULL</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span>,
+                link_id <span class="token_kw">INTEGER</span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NOT</span></span><span class="tooltiptext"><b>NOT</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NULL</span></span><span class="tooltiptext"><b>NULL</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span>,
+                motivo <span class="token_ok">VARCHAR</span><span class="token_ok">(max)</span>,
+                created_at <span class="token_ok">VARCHAR</span><span class="token_ok">(max)</span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NOT</span></span><span class="tooltiptext"><b>NOT</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NULL</span></span><span class="tooltiptext"><b>NULL</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span>,
+                created_by <span class="token_kw">INTEGER</span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NOT</span></span><span class="tooltiptext"><b>NOT</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NULL</span></span><span class="tooltiptext"><b>NULL</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span>,
+                <span class="token_kw">UNIQUE</span>(telefono_normalizado, link_id),
+                <span class="token_kw">FOREIGN</span> <span class="token_kw">KEY</span> (created_by) <span class="token_kw">REFERENCES</span> users(id),
+                <span class="token_kw">FOREIGN</span> <span class="token_kw">KEY</span> (link_id) <span class="token_kw">REFERENCES</span> links_contactos(id) <span class="token_kw">ON</span> <span class="token_kw">DELETE</span> <span class="token_error">CASCADE</span>
+            );</pre></td></tr>
+</tbody></table>
+  <p>CREATE TABLE statements details:</p><a name="crtab_stmt_table_NOT_NULL"></a><p>NOT NULL - NOT NULL constraint</p><table class="snippet_tab"><colgroup><col class="snippet_num_col"><col class="snippet_col"><col class="snippet_col"></colgroup><thead><tr><th></th><th>Source</th><th>Target</th></tr></thead><tbody><tr><td valign="top">1</td><td valign="top"><pre><span class="token_comment">/* @SQLines(Filename - docs/migration/datos_consignacion_sqlite_dump.sql:26095) */</span>
+<span class="tooltip"><span class="dotted-underline"><span class="token_kw">NOT</span></span><span class="tooltiptext"><b>NOT</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NULL</span></span><span class="tooltiptext"><b>NULL</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span></pre></td><td valign="top"><pre> 
+<span class="tooltip"><span class="dotted-underline"><span class="token_kw">NOT</span></span><span class="tooltiptext"><b>NOT</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NULL</span></span><span class="tooltiptext"><b>NULL</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span></pre></td></tr>
+<tr><td valign="top">2</td><td valign="top"><pre><span class="token_comment">/* @SQLines(Filename - docs/migration/datos_consignacion_sqlite_dump.sql:26096) */</span>
+<span class="tooltip"><span class="dotted-underline"><span class="token_kw">NOT</span></span><span class="tooltiptext"><b>NOT</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NULL</span></span><span class="tooltiptext"><b>NULL</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span></pre></td><td valign="top"><pre> 
+<span class="tooltip"><span class="dotted-underline"><span class="token_kw">NOT</span></span><span class="tooltiptext"><b>NOT</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NULL</span></span><span class="tooltiptext"><b>NULL</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span></pre></td></tr>
+<tr><td valign="top">3</td><td valign="top"><pre><span class="token_comment">/* @SQLines(Filename - docs/migration/datos_consignacion_sqlite_dump.sql:26097) */</span>
+<span class="tooltip"><span class="dotted-underline"><span class="token_kw">NOT</span></span><span class="tooltiptext"><b>NOT</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NULL</span></span><span class="tooltiptext"><b>NULL</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span></pre></td><td valign="top"><pre> 
+<span class="tooltip"><span class="dotted-underline"><span class="token_kw">NOT</span></span><span class="tooltiptext"><b>NOT</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NULL</span></span><span class="tooltiptext"><b>NULL</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span></pre></td></tr>
+<tr><td valign="top">4</td><td valign="top"><pre><span class="token_comment">/* @SQLines(Filename - docs/migration/datos_consignacion_sqlite_dump.sql:26099) */</span>
+<span class="tooltip"><span class="dotted-underline"><span class="token_kw">NOT</span></span><span class="tooltiptext"><b>NOT</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NULL</span></span><span class="tooltiptext"><b>NULL</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span></pre></td><td valign="top"><pre> 
+<span class="tooltip"><span class="dotted-underline"><span class="token_kw">NOT</span></span><span class="tooltiptext"><b>NOT</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NULL</span></span><span class="tooltiptext"><b>NULL</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span></pre></td></tr>
+<tr><td valign="top">5</td><td valign="top"><pre><span class="token_comment">/* @SQLines(Filename - docs/migration/datos_consignacion_sqlite_dump.sql:26100) */</span>
+<span class="tooltip"><span class="dotted-underline"><span class="token_kw">NOT</span></span><span class="tooltiptext"><b>NOT</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NULL</span></span><span class="tooltiptext"><b>NULL</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span></pre></td><td valign="top"><pre> 
+<span class="tooltip"><span class="dotted-underline"><span class="token_kw">NOT</span></span><span class="tooltiptext"><b>NOT</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span> <span class="tooltip"><span class="dotted-underline"><span class="token_kw">NULL</span></span><span class="tooltiptext"><b>NULL</b> - NOT NULL constraint - No conversion needed. <a href="https://www.sqlines.com/-to-sql-server#create-table-statement" target="_blank">More...</a></span></span></pre></td></tr>
+</tbody></table>
+  
+  
+  
+  
+  
+  
+  
+
+
+<!------------------------------->
+
+<h2>Data Types</h2>
+
+<p>All built-in data types:</p><a name="datatypes_table_INTEGER"></a><p>INTEGER - Integer number</p><table class="snippet_tab"><colgroup><col class="snippet_num_col"><col class="snippet_col"><col class="snippet_col"></colgroup><thead><tr><th></th><th>Source</th><th>Target</th></tr></thead><tbody><tr><td valign="top">1</td><td valign="top"><pre><span class="token_comment">/* @SQLines(Filename - docs/migration/datos_consignacion_sqlite_dump.sql:26094) */</span>
+<span class="token_kw">INTEGER</span></pre></td><td valign="top"><pre> 
+<span class="token_kw">INTEGER</span></pre></td></tr>
+<tr><td valign="top">2</td><td valign="top"><pre><span class="token_comment">/* @SQLines(Filename - docs/migration/datos_consignacion_sqlite_dump.sql:26097) */</span>
+<span class="token_kw">INTEGER</span></pre></td><td valign="top"><pre> 
+<span class="token_kw">INTEGER</span></pre></td></tr>
+<tr><td valign="top">3</td><td valign="top"><pre><span class="token_comment">/* @SQLines(Filename - docs/migration/datos_consignacion_sqlite_dump.sql:26100) */</span>
+<span class="token_kw">INTEGER</span></pre></td><td valign="top"><pre> 
+<span class="token_kw">INTEGER</span></pre></td></tr>
+</tbody></table><a name="datatypes_table_TEXT"></a><p>TEXT - Character string</p><table class="snippet_tab"><colgroup><col class="snippet_num_col"><col class="snippet_col"><col class="snippet_col"></colgroup><thead><tr><th></th><th>Source</th><th>Target</th></tr></thead><tbody><tr><td valign="top">1</td><td valign="top"><pre><span class="token_comment">/* @SQLines(Filename - docs/migration/datos_consignacion_sqlite_dump.sql:26095) */</span>
+<span class="token_ok">TEXT</span></pre></td><td valign="top"><pre> 
+<span class="token_ok">VARCHAR</span><span class="token_ok">(max)</span></pre></td></tr>
+<tr><td valign="top">2</td><td valign="top"><pre><span class="token_comment">/* @SQLines(Filename - docs/migration/datos_consignacion_sqlite_dump.sql:26096) */</span>
+<span class="token_ok">TEXT</span></pre></td><td valign="top"><pre> 
+<span class="token_ok">VARCHAR</span><span class="token_ok">(max)</span></pre></td></tr>
+<tr><td valign="top">3</td><td valign="top"><pre><span class="token_comment">/* @SQLines(Filename - docs/migration/datos_consignacion_sqlite_dump.sql:26098) */</span>
+<span class="token_ok">TEXT</span></pre></td><td valign="top"><pre> 
+<span class="token_ok">VARCHAR</span><span class="token_ok">(max)</span></pre></td></tr>
+<tr><td valign="top">4</td><td valign="top"><pre><span class="token_comment">/* @SQLines(Filename - docs/migration/datos_consignacion_sqlite_dump.sql:26099) */</span>
+<span class="token_ok">TEXT</span></pre></td><td valign="top"><pre> 
+<span class="token_ok">VARCHAR</span><span class="token_ok">(max)</span></pre></td></tr>
+</tbody></table>
+  <p>Built-in data type details:</p><a name="datatype_dtl_table_TEXT"></a><p>TEXT</p><table><th></th><th>Filename:line</th><th>Source Code Snippet</th><tr><td>1</td><td>docs/migration/datos_consignacion_sqlite_dump.sql:26095</td><td><pre><span class="token_ok">TEXT</span></pre></td></tr>
+<tr><td>2</td><td>docs/migration/datos_consignacion_sqlite_dump.sql:26096</td><td><pre><span class="token_ok">TEXT</span></pre></td></tr>
+<tr><td>3</td><td>docs/migration/datos_consignacion_sqlite_dump.sql:26098</td><td><pre><span class="token_ok">TEXT</span></pre></td></tr>
+<tr><td>4</td><td>docs/migration/datos_consignacion_sqlite_dump.sql:26099</td><td><pre><span class="token_ok">TEXT</span></pre></td></tr>
+</table>
+  
+
+
+<!------------------------------->
+
+
+<!------------------------------->
+
+
+<!------------------------------->
+
+
+<!------------------------------->
+
+
+<!------------------------------->
+
+
+<!------------------------------->
+
+
+<!------------------------------->
+
+
+<!------------------------------->
+
+
+<!------------------------------->
+
+
+<!------------------------------->
+
+
+<!------------------------------->
+

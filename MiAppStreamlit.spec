@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_all
 
-datas = [('src', 'src'), ('data', 'data')]
+datas = [('src', 'src'), ('docs/marcas.json', 'docs')]
 binaries = []
 hiddenimports = []
 tmp_ret = collect_all('streamlit')
@@ -17,7 +17,15 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=[
+        # Qt bindings (conflictos de hooks)
+        'PyQt6', 'PySide6', 'PyQt5', 'PySide2', 'shiboken6',
+        # Paquetes del entorno dev no usados por la app
+        'selenium', 'playwright', 'pygame', 'pytesseract',
+        'Eel', 'bottle', 'GPUtil', 'screeninfo',
+        'gitpython', 'gitdb', 'smmap',
+        'auto_py_to_exe',
+    ],
     noarchive=False,
     optimize=0,
 )
