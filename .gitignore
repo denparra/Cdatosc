@@ -3,5 +3,20 @@ __pycache__/
 *.py[cod]
 
 # Data generated at runtime
-# Environment files
 *.db
+!data/datos_consignacion.db
+data/multi_db_sources/current/
+data/multi_db_sources/archive/
+
+# Environment files
+.venv/
+.env
+
+# Build artifacts
+build/
+dist/
+*.pkg
+*.exe
+
+# Large report snippets
+outr/sqlines_report_snippets*.html
