@@ -18,6 +18,13 @@ from html import escape
 from typing import Any
 
 
+st.set_page_config(
+    page_title="Datos Consignacion",
+    page_icon="📇",
+    layout="centered",
+)
+
+
 def resource_path(relative_path):
     try:
         base_path = sys._MEIPASS
@@ -87,293 +94,191 @@ st.markdown("""
     <style>
     :root,
     [data-theme="light"] {
-        --primary-color: #2563eb;
-        --primary-hover: #1d4ed8;
+        --font-ui: "IBM Plex Sans", "Segoe UI", "Helvetica Neue", sans-serif;
+
+        --radius-sm: 10px;
+        --radius-md: 14px;
+        --radius-lg: 18px;
+        --radius-pill: 999px;
+
+        --space-1: 0.35rem;
+        --space-2: 0.6rem;
+        --space-3: 0.9rem;
+        --space-4: 1.2rem;
+        --space-5: 1.5rem;
+
+        --primary-color: #0d9488;
+        --primary-hover: #0f766e;
+        --primary-soft: #ccfbf1;
 
         --surface-0: #ffffff;
-        --surface-1: #f8fafc;
-        --surface-2: #eef2f7;
+        --surface-1: #f8fafb;
+        --surface-2: #eef3f4;
         --text-strong: #0f172a;
-        --text-muted: #334155;
+        --text-muted: #475569;
         --border-subtle: #cbd5e1;
 
-        --bg-soft: #f4f7ff;
+        --bg-soft: radial-gradient(circle at 10% 10%, #e6fffa 0%, #f8fafb 38%, #f5f7fa 100%);
         --card-bg: var(--surface-0);
-        --border-color: #dfe5f1;
+        --border-color: #d7e1e8;
 
-        --color-success-bg: #166534;
+        --sidebar-bg: #eef4f7;
+        --sidebar-surface: #ffffff;
+        --sidebar-text: #0f172a;
+        --sidebar-muted: #64748b;
+        --sidebar-border: #d5e0e8;
+        --sidebar-active-bg: #dff3f1;
+        --sidebar-accent: #0d9488;
+
         --color-success-bg-soft: #ecfdf3;
         --color-success-text: #14532d;
         --color-success-border: #22c55e;
 
-        --color-warning-bg: #b45309;
         --color-warning-bg-soft: #fff7ed;
         --color-warning-text: #7c2d12;
         --color-warning-border: #f59e0b;
 
-        --color-error-bg: #b91c1c;
         --color-error-bg-soft: #fef2f2;
         --color-error-text: #7f1d1d;
         --color-error-border: #ef4444;
 
-        --color-info-bg: #1d4ed8;
-        --color-info-bg-soft: #eff6ff;
-        --color-info-text: #1e3a8a;
-        --color-info-border: #3b82f6;
+        --color-info-bg-soft: #ecfeff;
+        --color-info-text: #155e75;
+        --color-info-border: #0ea5a4;
 
-        --color-neutral-bg: #334155;
         --color-neutral-bg-soft: #f8fafc;
         --color-neutral-text: #1f2937;
         --color-neutral-border: #94a3b8;
     }
 
     [data-theme="dark"] {
-        --surface-0: #0b1220;
-        --surface-1: #111a2e;
-        --surface-2: #1b263d;
+        --primary-color: #2dd4bf;
+        --primary-hover: #14b8a6;
+        --primary-soft: #123a36;
+
+        --surface-0: #0f172a;
+        --surface-1: #111f31;
+        --surface-2: #1a2a3e;
         --text-strong: #e2e8f0;
-        --text-muted: #cbd5e1;
-        --border-subtle: #334155;
+        --text-muted: #c1d0de;
+        --border-subtle: #365063;
 
-        --bg-soft: #0f172a;
-        --card-bg: #111a2e;
-        --border-color: #334155;
+        --bg-soft: radial-gradient(circle at 10% 10%, #0f262b 0%, #0f172a 50%, #0c1625 100%);
+        --card-bg: #111f31;
+        --border-color: #294154;
 
-        --color-success-bg: #22c55e;
+        --sidebar-bg: #09161a;
+        --sidebar-surface: #10252b;
+        --sidebar-text: #e2f2f0;
+        --sidebar-muted: #a6c7c2;
+        --sidebar-border: #1f3f45;
+        --sidebar-active-bg: #1b3f44;
+        --sidebar-accent: #2dd4bf;
+
         --color-success-bg-soft: #052e1f;
         --color-success-text: #86efac;
         --color-success-border: #15803d;
 
-        --color-warning-bg: #f59e0b;
         --color-warning-bg-soft: #3a2605;
         --color-warning-text: #fcd34d;
         --color-warning-border: #b45309;
 
-        --color-error-bg: #ef4444;
         --color-error-bg-soft: #3b0a0a;
         --color-error-text: #fca5a5;
         --color-error-border: #b91c1c;
 
-        --color-info-bg: #60a5fa;
-        --color-info-bg-soft: #0b2347;
-        --color-info-text: #bfdbfe;
-        --color-info-border: #2563eb;
+        --color-info-bg-soft: #07353c;
+        --color-info-text: #a5f3fc;
+        --color-info-border: #14b8a6;
 
-        --color-neutral-bg: #94a3b8;
         --color-neutral-bg-soft: #111827;
         --color-neutral-text: #e2e8f0;
         --color-neutral-border: #475569;
     }
 
-    @media (prefers-color-scheme: dark) {
-        :root:not([data-theme="light"]) {
-            --surface-0: #0b1220;
-            --surface-1: #111a2e;
-            --surface-2: #1b263d;
-            --text-strong: #e2e8f0;
-            --text-muted: #cbd5e1;
-            --border-subtle: #334155;
-
-            --bg-soft: #0f172a;
-            --card-bg: #111a2e;
-            --border-color: #334155;
-
-            --color-success-bg: #22c55e;
-            --color-success-bg-soft: #052e1f;
-            --color-success-text: #86efac;
-            --color-success-border: #15803d;
-
-            --color-warning-bg: #f59e0b;
-            --color-warning-bg-soft: #3a2605;
-            --color-warning-text: #fcd34d;
-            --color-warning-border: #b45309;
-
-            --color-error-bg: #ef4444;
-            --color-error-bg-soft: #3b0a0a;
-            --color-error-text: #fca5a5;
-            --color-error-border: #b91c1c;
-
-            --color-info-bg: #60a5fa;
-            --color-info-bg-soft: #0b2347;
-            --color-info-text: #bfdbfe;
-            --color-info-border: #2563eb;
-
-            --color-neutral-bg: #94a3b8;
-            --color-neutral-bg-soft: #111827;
-            --color-neutral-text: #e2e8f0;
-            --color-neutral-border: #475569;
-        }
-    }
-
-    div[data-testid="stAlert"],
-    div[data-baseweb="notification"] {
-        background: var(--color-neutral-bg-soft) !important;
-        border: 1px solid var(--color-neutral-border) !important;
-        border-radius: 12px !important;
-        color: var(--color-neutral-text) !important;
-        box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
-    }
-
-    div[data-testid="stAlert"] p,
-    div[data-testid="stAlert"] span,
-    div[data-testid="stAlert"] label,
-    div[data-testid="stAlert"] strong,
-    div[data-baseweb="notification"] p,
-    div[data-baseweb="notification"] span,
-    div[data-baseweb="notification"] label,
-    div[data-baseweb="notification"] strong {
-        color: inherit !important;
-    }
-    div[data-testid="stAlert"] a,
-    div[data-baseweb="notification"] a {
-        color: inherit !important;
-        text-decoration: underline;
-        text-underline-offset: 2px;
-    }
-
-    div[data-testid="stAlert"][kind="success"],
-    div[data-testid="stAlert"]:has(svg[aria-label="success icon"]),
-    div[data-baseweb="notification"][kind="success"] {
-        background: var(--color-success-bg-soft) !important;
-        border-color: var(--color-success-border) !important;
-        color: var(--color-success-text) !important;
-    }
-
-    div[data-testid="stAlert"][kind="warning"],
-    div[data-testid="stAlert"]:has(svg[aria-label="warning icon"]),
-    div[data-baseweb="notification"][kind="warning"] {
-        background: var(--color-warning-bg-soft) !important;
-        border-color: var(--color-warning-border) !important;
-        color: var(--color-warning-text) !important;
-    }
-
-    div[data-testid="stAlert"][kind="error"],
-    div[data-testid="stAlert"]:has(svg[aria-label="error icon"]),
-    div[data-baseweb="notification"][kind="error"] {
-        background: var(--color-error-bg-soft) !important;
-        border-color: var(--color-error-border) !important;
-        color: var(--color-error-text) !important;
-    }
-
-    div[data-testid="stAlert"][kind="info"],
-    div[data-testid="stAlert"]:has(svg[aria-label="info icon"]),
-    div[data-baseweb="notification"][kind="info"] {
-        background: var(--color-info-bg-soft) !important;
-        border-color: var(--color-info-border) !important;
-        color: var(--color-info-text) !important;
-    }
-
-    .alert {
-        border: 1px solid;
-        border-radius: 12px;
-        padding: 0.75rem 0.9rem;
-        font-size: 0.95rem;
-        line-height: 1.4;
-    }
-
-    .alert-success {
-        background: var(--color-success-bg-soft);
-        color: var(--color-success-text);
-        border-color: var(--color-success-border);
-    }
-
-    .alert-warning {
-        background: var(--color-warning-bg-soft);
-        color: var(--color-warning-text);
-        border-color: var(--color-warning-border);
-    }
-
-    .alert-error {
-        background: var(--color-error-bg-soft);
-        color: var(--color-error-text);
-        border-color: var(--color-error-border);
-    }
-
-    .alert-info {
-        background: var(--color-info-bg-soft);
-        color: var(--color-info-text);
-        border-color: var(--color-info-border);
-    }
-
-    .badge {
-        display: inline-flex;
-        align-items: center;
-        border-radius: 999px;
-        border: 1px solid;
-        padding: 0.18rem 0.55rem;
-        font-size: 0.75rem;
-        font-weight: 600;
-    }
-
-    .badge-error {
-        background: var(--color-error-bg-soft);
-        color: var(--color-error-text);
-        border-color: var(--color-error-border);
-    }
     .stApp {
-        max-width: 1200px;
-        margin: auto;
+        max-width: 1220px;
+        margin: 0 auto;
         background: var(--bg-soft);
         color: var(--text-strong);
+        font-family: var(--font-ui);
+    }
+    [data-testid="stMain"] [data-testid="stMarkdownContainer"],
+    [data-testid="stMain"] [data-testid="stWidgetLabel"] p,
+    [data-testid="stMain"] [data-testid="stText"],
+    [data-testid="stMain"] [data-testid="stHeading"] {
+        color: var(--text-strong) !important;
+    }
+    [data-testid="stMain"] [data-testid="stCaptionContainer"] {
+        color: var(--text-muted) !important;
     }
     div[data-testid="stAppViewContainer"] > .main {
-        padding: 2rem 2.5rem 3rem;
+        padding: 2rem 2.2rem 3rem;
     }
-    div[data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #1e3a8a 0%, #312e81 100%);
-        color: #f8fafc;
+
+    [data-testid="stSidebar"] {
+        background: var(--sidebar-bg);
+        color: var(--sidebar-text);
+        border-right: 1px solid var(--sidebar-border);
     }
-    div[data-testid="stSidebar"] svg,
-    div[data-testid="stSidebar"] h1,
-    div[data-testid="stSidebar"] h2,
-    div[data-testid="stSidebar"] label {
+    [data-testid="stSidebar"] svg,
+    [data-testid="stSidebar"] h1,
+    [data-testid="stSidebar"] h2,
+    [data-testid="stSidebar"] label {
         color: inherit !important;
         fill: inherit !important;
     }
-    div[data-testid="stSidebar"] section > div {
+    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"],
+    [data-testid="stSidebar"] [data-testid="stWidgetLabel"] p,
+    [data-testid="stSidebar"] [data-testid="stCaptionContainer"] {
+        color: var(--sidebar-text) !important;
+    }
+    [data-testid="stSidebar"] section > div {
         padding-right: 0.75rem;
     }
+
     .page-hero {
-        background: linear-gradient(135deg, rgba(37,99,235,0.16), rgba(129,140,248,0.16));
+        background: linear-gradient(135deg, color-mix(in srgb, var(--primary-color) 11%, transparent), color-mix(in srgb, var(--primary-soft) 45%, transparent));
         border: 1px solid var(--border-color);
-        border-radius: 18px;
-        padding: 1.1rem 1.4rem;
-        margin-bottom: 1.5rem;
-        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+        border-radius: var(--radius-lg);
+        padding: var(--space-4) 1.4rem;
+        margin-bottom: var(--space-5);
+        box-shadow: 0 10px 28px color-mix(in srgb, var(--primary-color) 18%, transparent);
     }
     .page-hero__title {
-        font-size: 1.9rem;
+        font-size: 1.85rem;
         font-weight: 700;
-        color: #1e3a8a;
-        margin-bottom: 0.35rem;
+        color: var(--text-strong);
+        margin-bottom: var(--space-1);
         display: flex;
         align-items: center;
-        gap: 0.6rem;
+        gap: var(--space-2);
     }
     .page-hero__icon {
-        font-size: 2rem;
+        font-size: 1.95rem;
         line-height: 1;
     }
     .page-hero__subtitle {
-        color: #475569;
+        color: var(--text-muted);
         font-size: 0.95rem;
         margin: 0;
     }
+
     .stButton button,
     .stDownloadButton button {
         background: var(--primary-color);
         color: #ffffff;
-        border-radius: 999px;
-        padding: 0.55rem 1.6rem;
+        border-radius: var(--radius-pill);
+        padding: 0.55rem 1.45rem;
         border: none;
         font-weight: 600;
-        transition: all 0.2s ease-in-out;
-        box-shadow: 0 8px 16px rgba(37,99,235,0.25);
+        transition: all 0.18s ease;
+        box-shadow: 0 8px 16px color-mix(in srgb, var(--primary-color) 30%, transparent);
     }
     .stButton button:hover,
     .stDownloadButton button:hover {
         background: var(--primary-hover);
-        box-shadow: 0 10px 22px rgba(37,99,235,0.35);
+        box-shadow: 0 10px 20px color-mix(in srgb, var(--primary-hover) 38%, transparent);
         transform: translateY(-1px);
     }
     .stButton button[kind="secondary"],
@@ -390,21 +295,24 @@ st.markdown("""
         background: var(--surface-2) !important;
         border-color: var(--color-info-border) !important;
     }
+
     div[data-testid="stForm"] {
         background: var(--card-bg);
         border: 1px solid var(--border-color);
-        border-radius: 16px;
-        padding: 1.5rem;
-        box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
-        margin-bottom: 1.5rem;
+        border-radius: var(--radius-md);
+        padding: var(--space-5);
+        box-shadow: 0 10px 22px color-mix(in srgb, var(--text-strong) 8%, transparent);
+        margin-bottom: var(--space-5);
     }
     div[data-testid="stForm"] label {
         font-weight: 600;
         color: var(--text-strong) !important;
     }
-    input, textarea, select {
-        font-size: 1.05em;
-        border-radius: 10px !important;
+    input,
+    textarea,
+    select {
+        font-size: 1.02em;
+        border-radius: var(--radius-sm) !important;
         border: 1px solid var(--border-subtle) !important;
         background: var(--surface-0) !important;
         color: var(--text-strong) !important;
@@ -412,75 +320,108 @@ st.markdown("""
     input::placeholder,
     textarea::placeholder {
         color: var(--text-muted) !important;
-        opacity: 0.78;
+        opacity: 0.82;
     }
-    input:focus, textarea:focus, select:focus {
+    input:focus,
+    textarea:focus,
+    select:focus {
         border-color: var(--color-info-border) !important;
-        box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-info-border) 35%, transparent) !important;
+        box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-info-border) 34%, transparent) !important;
     }
-    .sidebar-card {
-        border-radius: 14px;
-        padding: 1rem;
-        background: rgba(15,23,42,0.88);
-        box-shadow: 0 8px 18px rgba(15,23,42,0.4);
-        color: #f8fafc;
-        border: 1px solid rgba(148,163,184,0.3);
-        position: relative;
+
+    table td,
+    table th {
+        border-color: color-mix(in srgb, var(--text-muted) 22%, transparent) !important;
+        padding: 0.58rem 0.75rem !important;
     }
-    .sidebar-card__title {
-        margin-bottom: 0.6rem;
-        font-size: 1.05rem;
+
+    div[data-testid="stAlert"],
+    div[data-baseweb="notification"] {
+        background: var(--color-neutral-bg-soft) !important;
+        border: 1px solid var(--color-neutral-border) !important;
+        border-radius: var(--radius-sm) !important;
+        color: var(--color-neutral-text) !important;
+        box-shadow: 0 8px 16px color-mix(in srgb, var(--text-strong) 10%, transparent);
+    }
+    div[data-testid="stAlert"][kind="success"],
+    div[data-testid="stAlert"]:has(svg[aria-label="success icon"]),
+    div[data-baseweb="notification"][kind="success"] {
+        background: var(--color-success-bg-soft) !important;
+        border-color: var(--color-success-border) !important;
+        color: var(--color-success-text) !important;
+    }
+    div[data-testid="stAlert"][kind="warning"],
+    div[data-testid="stAlert"]:has(svg[aria-label="warning icon"]),
+    div[data-baseweb="notification"][kind="warning"] {
+        background: var(--color-warning-bg-soft) !important;
+        border-color: var(--color-warning-border) !important;
+        color: var(--color-warning-text) !important;
+    }
+    div[data-testid="stAlert"][kind="error"],
+    div[data-testid="stAlert"]:has(svg[aria-label="error icon"]),
+    div[data-baseweb="notification"][kind="error"] {
+        background: var(--color-error-bg-soft) !important;
+        border-color: var(--color-error-border) !important;
+        color: var(--color-error-text) !important;
+    }
+    div[data-testid="stAlert"][kind="info"],
+    div[data-testid="stAlert"]:has(svg[aria-label="info icon"]),
+    div[data-baseweb="notification"][kind="info"] {
+        background: var(--color-info-bg-soft) !important;
+        border-color: var(--color-info-border) !important;
+        color: var(--color-info-text) !important;
+    }
+
+    .badge {
+        display: inline-flex;
+        align-items: center;
+        border-radius: var(--radius-pill);
+        border: 1px solid;
+        padding: 0.18rem 0.58rem;
+        font-size: 0.75rem;
         font-weight: 600;
-        letter-spacing: 0.01em;
     }
-    .sidebar-card__body {
-        max-height: 280px;
-        overflow-y: auto;
-        margin-bottom: 0.75rem;
-        font-family: "Source Code Pro", monospace;
-        font-size: 0.9rem;
-        white-space: pre-wrap;
-        word-wrap: break-word;
+    .badge-success {
+        background: var(--color-success-bg-soft);
+        color: var(--color-success-text);
+        border-color: var(--color-success-border);
     }
-    .sidebar-card button {
-        width: 100%;
-        border-radius: 999px;
-        background: linear-gradient(135deg, #22d3ee 0%, #6366f1 100%);
-        border: none;
-        color: #0f172a;
-        font-weight: 600;
-        padding: 0.55rem 1rem;
-        cursor: pointer;
-        transition: all 0.2s ease-in-out;
+    .badge-warning {
+        background: var(--color-warning-bg-soft);
+        color: var(--color-warning-text);
+        border-color: var(--color-warning-border);
     }
-    .sidebar-card button:hover {
-        opacity: 0.92;
-        transform: translateY(-1px);
+    .badge-error {
+        background: var(--color-error-bg-soft);
+        color: var(--color-error-text);
+        border-color: var(--color-error-border);
     }
-    table td, table th {
-        border-color: rgba(100,116,139,0.18) !important;
-        padding: 0.6rem 0.75rem !important;
+    .badge-info {
+        background: var(--color-info-bg-soft);
+        color: var(--color-info-text);
+        border-color: var(--color-info-border);
     }
+
     .sidebar-user-card {
         display: flex;
         align-items: center;
-        gap: 0.85rem;
-        padding: 1rem;
-        border-radius: 16px;
-        background: rgba(15,23,42,0.45);
-        border: 1px solid rgba(148,163,184,0.35);
-        margin-bottom: 1.1rem;
+        gap: var(--space-3);
+        padding: var(--space-3);
+        border-radius: var(--radius-md);
+        background: var(--sidebar-surface);
+        border: 1px solid var(--sidebar-border);
+        margin-bottom: var(--space-4);
     }
     .sidebar-user-card__initials {
         width: 46px;
         height: 46px;
-        border-radius: 14px;
-        background: linear-gradient(135deg, rgba(14,116,144,0.4), rgba(129,140,248,0.7));
+        border-radius: 12px;
+        background: color-mix(in srgb, var(--sidebar-accent) 36%, #ffffff 64%);
         display: grid;
         place-items: center;
         font-weight: 700;
         font-size: 1.05rem;
-        color: #0f172a;
+        color: #09353a;
     }
     .sidebar-user-card__meta {
         display: flex;
@@ -490,65 +431,63 @@ st.markdown("""
     .sidebar-user-card__name {
         margin: 0;
         font-weight: 600;
-        color: #e2e8f0;
+        color: var(--sidebar-text);
     }
     .sidebar-user-card__role {
         font-size: 0.75rem;
         letter-spacing: 0.06em;
         text-transform: uppercase;
-        color: rgba(226,232,240,0.75);
+        color: var(--sidebar-muted);
     }
-    div[data-testid="stSidebar"] div[role="radiogroup"] {
+
+    [data-testid="stSidebar"] div[role="radiogroup"] {
         display: grid;
-        gap: 0.55rem;
+        gap: var(--space-2);
     }
-    div[data-testid="stSidebar"] div[role="radiogroup"] > label {
+    [data-testid="stSidebar"] div[role="radiogroup"] > label {
         position: relative;
         display: flex;
         align-items: center;
         gap: 0.75rem;
-        border-radius: 14px;
-        padding: 0.75rem 1rem;
+        border-radius: 12px;
+        padding: 0.72rem 0.95rem;
         margin: 0;
-        border: 1px solid rgba(148,163,184,0.22);
-        transition: background 0.2s ease, border 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
-        background: rgba(148,163,184,0.12);
-        box-shadow: inset 0 0 0 1px rgba(15,23,42,0.18), 0 8px 20px rgba(15,23,42,0.05);
-        color: #e2e8f0;
+        border: 1px solid var(--sidebar-border);
+        transition: background 0.2s ease, border 0.2s ease, box-shadow 0.2s ease;
+        background: color-mix(in srgb, var(--sidebar-surface) 76%, #000000 24%);
+        color: var(--sidebar-text);
         font-weight: 600;
     }
-    div[data-testid="stSidebar"] div[role="radiogroup"] > label:hover {
-        background: rgba(148,163,184,0.22);
-        border-color: rgba(148,163,184,0.38);
-        box-shadow: inset 0 0 0 1px rgba(15,23,42,0.22), 0 12px 24px rgba(15,23,42,0.08);
-        transform: translateX(2px);
+    [data-testid="stSidebar"] div[role="radiogroup"] > label:hover {
+        background: var(--sidebar-surface);
+        border-color: color-mix(in srgb, var(--sidebar-accent) 40%, var(--sidebar-border));
     }
-    div[data-testid="stSidebar"] div[role="radiogroup"] > label:focus-within {
-        outline: 3px solid rgba(94,234,212,0.6);
+    [data-testid="stSidebar"] div[role="radiogroup"] > label:focus-within {
+        outline: 2px solid color-mix(in srgb, var(--sidebar-accent) 70%, transparent);
         outline-offset: 2px;
     }
-    div[data-testid="stSidebar"] div[role="radiogroup"] > label[aria-checked="true"] {
-        background: linear-gradient(135deg, rgba(79,70,229,0.18), rgba(6,182,212,0.24));
-        border-color: rgba(94,234,212,0.8);
-        box-shadow: inset 0 0 0 1px rgba(14,116,144,0.35), 0 16px 32px rgba(14,116,144,0.25);
-        transform: translateX(2px);
+    [data-testid="stSidebar"] div[role="radiogroup"] > label[aria-checked="true"] {
+        background: var(--sidebar-active-bg);
+        border-color: color-mix(in srgb, var(--sidebar-accent) 60%, var(--sidebar-border));
+        box-shadow: inset 3px 0 0 var(--sidebar-accent);
     }
-    div[data-testid="stSidebar"] div[role="radiogroup"] > label div[part="radio"] {
+    [data-testid="stSidebar"] div[role="radiogroup"] > label div[part="radio"] {
         display: none;
     }
-    div[data-testid="stSidebar"] div[role="radiogroup"] > label > div:first-child {
+    [data-testid="stSidebar"] div[role="radiogroup"] > label > div:first-child {
         display: none !important;
     }
-    div[data-testid="stSidebar"] div[role="radiogroup"] > label > div:last-child {
+    [data-testid="stSidebar"] div[role="radiogroup"] > label > div:last-child {
         flex: 1;
     }
+
     .sidebar-section-title {
-        margin: 1.2rem 0 0.5rem;
+        margin: var(--space-4) 0 var(--space-2);
         font-size: 0.78rem;
         text-transform: uppercase;
         letter-spacing: 0.14em;
         font-weight: 700;
-        color: rgba(226,232,240,0.65);
+        color: var(--sidebar-muted);
     }
     .sidebar-section-title:first-child {
         margin-top: 0.2rem;
@@ -556,23 +495,24 @@ st.markdown("""
     .sidebar-divider {
         height: 1px;
         width: 100%;
-        margin: 1.3rem 0 0.9rem;
-        background: linear-gradient(90deg, rgba(94,234,212,0.65) 0%, rgba(129,140,248,0) 100%);
-        border-radius: 999px;
+        margin: var(--space-4) 0 var(--space-3);
+        background: color-mix(in srgb, var(--sidebar-accent) 42%, transparent);
+        border-radius: var(--radius-pill);
     }
     .sidebar-group-hint {
         font-size: 0.75rem;
-        color: rgba(226,232,240,0.65);
+        color: var(--sidebar-muted);
         margin: 0.25rem 0 0;
     }
+
     .sidebar-message-card {
-        border-radius: 16px;
-        background: rgba(30,41,59,0.9);
-        border: 1px solid rgba(148,163,184,0.35);
-        padding: 1rem;
+        border-radius: var(--radius-md);
+        background: var(--sidebar-surface);
+        border: 1px solid var(--sidebar-border);
+        padding: var(--space-3);
         display: flex;
         flex-direction: column;
-        gap: 0.6rem;
+        gap: var(--space-2);
     }
     .sidebar-message-card__header {
         display: flex;
@@ -582,53 +522,73 @@ st.markdown("""
     }
     .sidebar-message-card__title {
         font-weight: 600;
-        color: #e2e8f0;
+        color: var(--sidebar-text);
         margin: 0;
     }
     .sidebar-message-card__body {
-        background: rgba(15,23,42,0.65);
-        border-radius: 12px;
+        background: color-mix(in srgb, var(--sidebar-bg) 64%, #000000 36%);
+        border-radius: var(--radius-sm);
         padding: 0.75rem;
         max-height: 170px;
         overflow-y: auto;
-        border: 1px dashed rgba(148,163,184,0.35);
-        color: #cbd5f5;
+        border: 1px dashed var(--sidebar-border);
+        color: var(--sidebar-muted);
         font-size: 0.88rem;
     }
     .sidebar-message-card__copy {
-        border-radius: 999px;
+        border-radius: var(--radius-pill);
         border: none;
         padding: 0.4rem 0.9rem;
-        background: linear-gradient(135deg, #22d3ee 0%, #818cf8 100%);
-        color: #0f172a;
+        background: var(--sidebar-accent);
+        color: #08363a;
         font-weight: 600;
         cursor: pointer;
         transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
     .sidebar-message-card__copy:hover {
         transform: translateY(-1px);
-        box-shadow: 0 8px 18px rgba(14,165,233,0.25);
+        box-shadow: 0 8px 16px color-mix(in srgb, var(--sidebar-accent) 36%, transparent);
     }
+
     button:focus-visible,
     .sidebar-message-card__copy:focus-visible,
     input:focus-visible,
     textarea:focus-visible,
     select:focus-visible {
-        outline: 3px solid color-mix(in srgb, var(--color-info-border) 60%, transparent);
+        outline: 2px solid color-mix(in srgb, var(--color-info-border) 70%, transparent);
         outline-offset: 2px;
     }
+
     @media (prefers-reduced-motion: reduce) {
         *, *::before, *::after {
             transition-duration: 0.001ms !important;
             animation-duration: 0.001ms !important;
         }
     }
+
+    @media (max-width: 1024px) {
+        div[data-testid="stAppViewContainer"] > .main {
+            padding: 1.8rem 1.25rem 2.6rem;
+        }
+    }
     @media (max-width: 820px) {
         div[data-testid="stAppViewContainer"] > .main {
-            padding: 1.5rem 1rem 2.5rem;
+            padding: 1.45rem 1rem 2.3rem;
         }
         .page-hero__title {
-            font-size: 1.6rem;
+            font-size: 1.55rem;
+        }
+    }
+    @media (max-width: 480px) {
+        .page-hero {
+            padding: 1rem 0.95rem;
+        }
+        .page-hero__title {
+            font-size: 1.35rem;
+            gap: 0.45rem;
+        }
+        .page-hero__icon {
+            font-size: 1.5rem;
         }
     }
     </style>
@@ -676,6 +636,103 @@ def nav_display_label(option: str) -> str:
 def nav_caption(option: str) -> str:
     """Return the contextual caption for the selected navigation option."""
     return NAV_METADATA.get(option, {}).get("caption", "")
+
+
+THEME_LABELS: dict[str, str] = {
+    "auto": "Auto (Sistema)",
+    "light": "Claro",
+    "dark": "Oscuro",
+}
+
+LIGHT_THEME_VARS = """
+--primary-color: #0d9488;
+--primary-hover: #0f766e;
+--primary-soft: #ccfbf1;
+--surface-0: #ffffff;
+--surface-1: #f8fafb;
+--surface-2: #eef3f4;
+--text-strong: #0f172a;
+--text-muted: #475569;
+--border-subtle: #cbd5e1;
+--bg-soft: radial-gradient(circle at 10% 10%, #e6fffa 0%, #f8fafb 38%, #f5f7fa 100%);
+--card-bg: #ffffff;
+--border-color: #d7e1e8;
+--sidebar-bg: #eef4f7;
+--sidebar-surface: #ffffff;
+--sidebar-text: #0f172a;
+--sidebar-muted: #64748b;
+--sidebar-border: #d5e0e8;
+--sidebar-active-bg: #dff3f1;
+--sidebar-accent: #0d9488;
+--color-success-bg-soft: #ecfdf3;
+--color-success-text: #14532d;
+--color-success-border: #22c55e;
+--color-warning-bg-soft: #fff7ed;
+--color-warning-text: #7c2d12;
+--color-warning-border: #f59e0b;
+--color-error-bg-soft: #fef2f2;
+--color-error-text: #7f1d1d;
+--color-error-border: #ef4444;
+--color-info-bg-soft: #ecfeff;
+--color-info-text: #155e75;
+--color-info-border: #0ea5a4;
+--color-neutral-bg-soft: #f8fafc;
+--color-neutral-text: #1f2937;
+--color-neutral-border: #94a3b8;
+"""
+
+DARK_THEME_VARS = """
+--primary-color: #2dd4bf;
+--primary-hover: #14b8a6;
+--primary-soft: #123a36;
+--surface-0: #0f172a;
+--surface-1: #111f31;
+--surface-2: #1a2a3e;
+--text-strong: #e2e8f0;
+--text-muted: #c1d0de;
+--border-subtle: #365063;
+--bg-soft: radial-gradient(circle at 10% 10%, #0f262b 0%, #0f172a 50%, #0c1625 100%);
+--card-bg: #111f31;
+--border-color: #294154;
+--sidebar-bg: #09161a;
+--sidebar-surface: #10252b;
+--sidebar-text: #e2f2f0;
+--sidebar-muted: #a6c7c2;
+--sidebar-border: #1f3f45;
+--sidebar-active-bg: #1b3f44;
+--sidebar-accent: #2dd4bf;
+--color-success-bg-soft: #052e1f;
+--color-success-text: #86efac;
+--color-success-border: #15803d;
+--color-warning-bg-soft: #3a2605;
+--color-warning-text: #fcd34d;
+--color-warning-border: #b45309;
+--color-error-bg-soft: #3b0a0a;
+--color-error-text: #fca5a5;
+--color-error-border: #b91c1c;
+--color-info-bg-soft: #07353c;
+--color-info-text: #a5f3fc;
+--color-info-border: #14b8a6;
+--color-neutral-bg-soft: #111827;
+--color-neutral-text: #e2e8f0;
+--color-neutral-border: #475569;
+"""
+
+
+def apply_theme_preference(theme_mode: str) -> None:
+    """Apply theme by overriding CSS variables based on user preference."""
+    safe_mode = theme_mode if theme_mode in {"auto", "light", "dark"} else "auto"
+    theme_selector = ":root, [data-theme='light'], [data-theme='dark']"
+    if safe_mode == "dark":
+        css = f"{theme_selector} {{ {DARK_THEME_VARS} }}"
+    elif safe_mode == "light":
+        css = f"{theme_selector} {{ {LIGHT_THEME_VARS} }}"
+    else:
+        css = (
+            f"{theme_selector} {{ {LIGHT_THEME_VARS} }} "
+            f"@media (prefers-color-scheme: dark) {{ {theme_selector} {{ {DARK_THEME_VARS} }} }}"
+        )
+    st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
 
 
 def render_sidebar_user_panel(user: dict[str, Any]) -> None:
@@ -759,6 +816,18 @@ def render_navigation_sidebar(current_page: str) -> str:
     else:
         st.sidebar.info("Inicia sesión para acceder a la gestión de consignaciones.")
 
+    current_theme = st.session_state.get("theme_preference", "auto")
+    if current_theme not in THEME_LABELS:
+        current_theme = "auto"
+    selected_theme = st.sidebar.selectbox(
+        "Tema visual",
+        options=list(THEME_LABELS.keys()),
+        index=list(THEME_LABELS.keys()).index(current_theme),
+        format_func=lambda mode: THEME_LABELS.get(mode, mode),
+        key="theme_preference",
+    )
+    apply_theme_preference(selected_theme)
+
     st.sidebar.markdown("<p class='sidebar-section-title'>Accesos principales</p>", unsafe_allow_html=True)
 
     menu_options = build_menu_options(user)
@@ -768,11 +837,11 @@ def render_navigation_sidebar(current_page: str) -> str:
         st.sidebar.markdown(
             f"""
             <style>
-            div[data-testid="stSidebar"] div[role="radiogroup"] > label:nth-child({admin_start}) {{
+            [data-testid="stSidebar"] div[role="radiogroup"] > label:nth-child({admin_start}) {{
                 margin-top: 1.4rem;
             }}
-            div[data-testid="stSidebar"] div[role="radiogroup"] > label:nth-child(n+{admin_start}):not([aria-checked="true"]) {{
-                background: rgba(148,163,184,0.1);
+            [data-testid="stSidebar"] div[role="radiogroup"] > label:nth-child(n+{admin_start}):not([aria-checked="true"]) {{
+                background: color-mix(in srgb, var(--sidebar-surface) 74%, transparent);
             }}
             </style>
             """,
@@ -970,6 +1039,8 @@ if 'user' not in st.session_state:
     st.session_state['user'] = None
 if 'cws_msg' not in st.session_state:
     st.session_state['cws_msg'] = ''
+if 'theme_preference' not in st.session_state:
+    st.session_state['theme_preference'] = 'auto'
 
 # =============================================================================
 # CONEXIÓN A LA BASE DE DATOS Y CREACIÓN DE TABLAS
@@ -2710,7 +2781,7 @@ def render_edit_contactos_tab() -> None:
             new_auto = st.text_input("Auto", value=contact["auto"])
             new_precio = st.text_input("Precio", value=str(contact["precio"]))
             new_descripcion = st.text_area("Descripción", value=contact["descripcion"])
-            submit_update = st.form_submit_button("Confirmar Actualización")
+            submit_update = st.form_submit_button("Confirmar Actualización", use_container_width=True)
         if submit_update:
             if update_contact(
                 contact_id,
@@ -2728,7 +2799,7 @@ def render_edit_contactos_tab() -> None:
                 st.error("No se pudo actualizar el contacto.")
     with col2:
         with st.form("editar_contacto_delete_form"):
-            submit_delete = st.form_submit_button("Eliminar Contacto")
+            submit_delete = st.form_submit_button("Eliminar Contacto", use_container_width=True)
         if submit_delete:
             if delete_contact(contact_id):
                 st.success("Contacto eliminado correctamente!")
@@ -2777,7 +2848,7 @@ def render_edit_links_tab() -> None:
                 default_idx = 0
             user_sel = st.selectbox("Asignar a Usuario", user_opts, index=default_idx)
             new_user_id = int(user_sel.split(" - ")[0])
-        submit_button = st.form_submit_button("Actualizar Link")
+        submit_button = st.form_submit_button("Actualizar Link", use_container_width=True)
     if submit_button:
         if update_link_record(link_id, new_link_general, new_fecha, new_marca, new_descripcion, new_user_id):
             st.success("Link actualizado correctamente!")
@@ -2811,7 +2882,7 @@ def render_edit_mensajes_tab() -> None:
     with col1:
         with st.form("editar_mensaje_update_form"):
             nuevo_texto = st.text_area("Mensaje", value=mensaje['descripcion'])
-            submit_update_msg = st.form_submit_button("Confirmar Actualización")
+            submit_update_msg = st.form_submit_button("Confirmar Actualización", use_container_width=True)
         if submit_update_msg:
             if update_message(msg_id, nuevo_texto):
                 st.success("Mensaje actualizado correctamente!")
@@ -2821,7 +2892,7 @@ def render_edit_mensajes_tab() -> None:
                 st.error("No se pudo actualizar el mensaje.")
     with col2:
         with st.form("editar_mensaje_delete_form"):
-            submit_delete_msg = st.form_submit_button("Eliminar Mensaje")
+            submit_delete_msg = st.form_submit_button("Eliminar Mensaje", use_container_width=True)
         if submit_delete_msg:
             if delete_message(msg_id):
                 st.success("Mensaje eliminado correctamente!")
@@ -2880,7 +2951,7 @@ def render_superadmin_multidb_page() -> None:
                 type=["db"],
                 key="superadmin_db_uploader",
             )
-            submit_upload = st.form_submit_button("Guardar fuente")
+            submit_upload = st.form_submit_button("Guardar fuente", use_container_width=True)
         if submit_upload:
             ok, message = save_uploaded_source_db(uploaded_db, alias, label)
             if ok:
@@ -3052,11 +3123,11 @@ st.session_state.page = page
 # PÁGINA: LOGIN
 # =============================================================================
 if page == "Login":
-    render_page_header("Iniciar sesión", "Accede para gestionar consignaciones con tu cuenta.", "🔒")
+    render_page_header("Iniciar sesión", "Accede para gestionar consignaciones con tu cuenta.", "🔐")
     with st.form("login_form"):
         username = st.text_input("Usuario")
         password = st.text_input("Contraseña", type="password")
-        submit_login = st.form_submit_button("Entrar")
+        submit_login = st.form_submit_button("Entrar", use_container_width=True)
     if submit_login:
         user = authenticate_user(username, password)
         if user:
@@ -3080,7 +3151,7 @@ if page == "Crear Link Contactos":
         fecha_creacion = st.date_input("Fecha de Creación", value=datetime.date.today())
         marca = st.text_input("Marca")
         descripcion = st.text_area("Descripción")
-        submitted = st.form_submit_button("Crear Link")
+        submitted = st.form_submit_button("Crear Link", use_container_width=True)
     if submitted:
         if not link_general.strip() or not marca.strip() or not descripcion.strip():
             st.error("Todos los campos son requeridos.")
@@ -3107,7 +3178,7 @@ if page == "Crear Link Contactos":
 # PÁGINA: LINKS CONTACTOS
 # =============================================================================
 elif page == "Links Contactos":
-    render_page_header("Links de contactos", "Consulta, edita y exporta los enlaces existentes.", "📚")
+    render_page_header("Links de contactos", "Consulta, edita y exporta los enlaces existentes.", "🗂️")
     if has_admin_access(st.session_state['user']):
         df_links = read_query("SELECT * FROM links_contactos")
     else:
@@ -3157,7 +3228,7 @@ elif page == "Links Contactos":
                         default_idx = 0
                     user_selection = st.selectbox("Asignar a Usuario", user_options, index=default_idx)
                     new_user_id = int(user_selection.split(" - ")[0])
-                submit_upd = st.form_submit_button("Actualizar Link")
+                submit_upd = st.form_submit_button("Actualizar Link", use_container_width=True)
             if submit_upd:
                 if update_link_record(link_id, new_link, new_fecha, new_marca, new_desc, new_user_id):
                     st.success("Link actualizado correctamente!")
@@ -3165,7 +3236,7 @@ elif page == "Links Contactos":
                     st.error("No se pudo actualizar el Link.")
         with col2:
             with st.form("eliminar_link_manage_form"):
-                submit_del = st.form_submit_button("Eliminar Link")
+                submit_del = st.form_submit_button("Eliminar Link", use_container_width=True)
             if submit_del:
                 if delete_link_record(link_id):
                     st.success("Link eliminado correctamente!")
@@ -3406,7 +3477,7 @@ elif page == "Agregar Contactos":
 # PÁGINA: VER CONTACTOS & EXPORTAR
 # =============================================================================
 elif page == "Ver Contactos & Exportar":
-    render_page_header("Ver contactos y exportar", "Filtra registros y descarga reportes para seguimiento.", "👥")
+    render_page_header("Ver contactos y exportar", "Filtra registros y descarga reportes para seguimiento.", "📤")
     
     # --- EXPORTACIÓN GLOBAL (NUEVO) ---
     with st.expander("🌍 Exportación Global (Toda la Base de Datos)", expanded=False):
@@ -3541,8 +3612,8 @@ elif page == "Ver Contactos & Exportar":
 
         # --- EXPORTACIÓN AVANZADA (NUEVO) ---
         if not df_contactos.empty:
-            st.markdown("---")
-            st.markdown("### 📤 Exportar Datos")
+            st.divider()
+            st.subheader("Exportar datos")
             st.caption("Descarga la lista con columnas detalladas: Telefono, Nombre, Marca, Modelo, Año, Precio, Link.")
             
             # Preparar DF una sola vez
@@ -3589,7 +3660,7 @@ elif page == "Ver Contactos & Exportar":
 
             if df_export_filtered.empty:
                 st.warning("No hay datos para exportar con la segmentación elegida.")
-                st.markdown("---")
+                st.divider()
             else:
             
                 col_exp1, col_exp2 = st.columns(2)
@@ -3625,7 +3696,7 @@ elif page == "Ver Contactos & Exportar":
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         use_container_width=True
                     )
-                st.markdown("---")
+                st.divider()
 
         st.subheader("Contactos Registrados")
         mensajes_df = read_query(
@@ -3670,6 +3741,7 @@ elif page == "Ver Contactos & Exportar":
                     data=output.getvalue(),
                     file_name="contactos_simple.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
                 )
             with col2:
                 html_content, html_name = generate_html(df_contactos, messages_raw)
@@ -3678,6 +3750,7 @@ elif page == "Ver Contactos & Exportar":
                     data=html_content,
                     file_name=html_name,
                     mime="text/html",
+                    use_container_width=True,
                 )
 
             with get_connection() as con:
@@ -3735,29 +3808,31 @@ elif page == "CWS Chat WhatsApp":
                 if df_contactos.empty:
                     st.info("No hay contactos para este link.")
                 else:
-                    header = st.columns([3, 1, 2, 2, 1])
-                    header[0].write("Auto")
-                    header[1].write("Precio")
-                    header[2].write("Teléfono")
-                    header[3].write("Link_CA")
-                    header[4].write("")
-                    for _, row in df_contactos.iterrows():
-                        cols = st.columns([3, 1, 2, 2, 1])
-                        cols[0].write(row['auto'])
-                        cols[1].write(row['precio'])
-                        cols[2].write(row['telefono'])
-                        cols[3].markdown(
-                            f"[Link_CA]({row['link_auto']})", unsafe_allow_html=True
-                        )
-                        link, msg = build_whatsapp_link(
-                            plantillas, row.to_dict()
-                        )
-                        cols[4].button(
-                            "Link_WS",
-                            key=f"ws_{row['id']}",
-                            on_click=open_whatsapp,
-                            args=(link, msg),
-                        )
+                    st.subheader("Contactos para mensajería")
+                    preview_df = df_contactos[["id", "auto", "precio", "telefono", "link_auto"]].copy()
+                    preview_df = preview_df.rename(
+                        columns={
+                            "id": "ID",
+                            "auto": "Auto",
+                            "precio": "Precio",
+                            "telefono": "Teléfono",
+                            "link_auto": "Link CA",
+                        }
+                    )
+                    st.dataframe(preview_df, use_container_width=True)
+
+                    options = preview_df.apply(
+                        lambda row: f"ID {int(row['ID'])} | {row['Auto']} | {row['Teléfono']}",
+                        axis=1,
+                    )
+                    selected_label = st.selectbox("Selecciona un contacto", options, key="cws_contact_selector")
+                    selected_id = int(selected_label.split("|")[0].replace("ID", "").strip())
+                    selected_row = df_contactos[df_contactos["id"] == selected_id].iloc[0]
+                    link, msg = build_whatsapp_link(plantillas, selected_row.to_dict())
+
+                    st.caption("Se abrirá WhatsApp con la plantilla y datos del contacto seleccionado.")
+                    if st.button("Abrir WhatsApp", key=f"ws_selected_{selected_id}", use_container_width=True):
+                        open_whatsapp(link, msg)
             else:
                 st.info("Seleccione al menos una plantilla.")
 
@@ -3774,19 +3849,18 @@ elif page == "Mensajes":
     st.subheader("Mensajes Registrados")
     st.dataframe(df_mensajes)
 
+    st.divider()
+
     with st.form("nuevo_mensaje_form"):
         mensaje_nuevo = st.text_area("Nuevo Mensaje")
-        submit_mensaje = st.form_submit_button("Guardar Mensaje")
+        submit_mensaje = st.form_submit_button("Guardar Mensaje", use_container_width=True)
     if submit_mensaje and mensaje_nuevo.strip():
         add_message(mensaje_nuevo, st.session_state['user']['id'])
         st.success("Mensaje guardado")
-        df_mensajes = read_query(
-            "SELECT * FROM mensajes WHERE user_id = ?",
-            params=[st.session_state['user']['id']],
-        )
-        st.dataframe(df_mensajes)
+        st.rerun()
 
     mensaje_default = st.session_state.get('mensaje_html', '')
+    st.subheader("Generar HTML")
     mensaje = st.text_input("Mensaje para WhatsApp", mensaje_default, key="mensaje_html")
     if df_contactos is not None and not df_contactos.empty:
         html_content, html_name = generate_html(df_contactos, mensaje)
@@ -3795,6 +3869,7 @@ elif page == "Mensajes":
             data=html_content,
             file_name=html_name,
             mime="text/html",
+            use_container_width=True,
         )
     else:
         st.warning(
@@ -3909,7 +3984,7 @@ elif page == "Contactos Restringidos":
                 key="restricted_reason",
                 placeholder="Describe brevemente la razón de la restricción.",
             )
-            submit_restricted = st.form_submit_button("Guardar número restringido")
+            submit_restricted = st.form_submit_button("Guardar número restringido", use_container_width=True)
 
         if submit_restricted:
             success, message = add_restricted_number(
@@ -4011,7 +4086,8 @@ elif page == "Contactos Restringidos":
             else:
                 st.dataframe(display_df[columnas])
 
-            st.markdown("### Quitar restricción")
+            st.divider()
+            st.subheader("Quitar restricción")
             remove_df = filtered_df.copy().reset_index(drop=True)
             if remove_df.empty:
                 st.info("No hay registros disponibles para eliminar con los filtros actuales.")
@@ -4055,25 +4131,27 @@ elif page == "Contactos Restringidos":
                             st.error(msg)
 
 elif page == "Admin Usuarios":
+    render_page_header("Administración de usuarios", "Gestiona cuentas y roles del equipo.", "🧑‍💼")
     if not has_admin_access(st.session_state['user']):
         st.error("Acceso denegado")
     else:
-        render_page_header("Administración de usuarios", "Gestiona cuentas y roles del equipo.", "🧑‍💼")
         df_users = read_query("SELECT id, username, role FROM users")
         st.dataframe(df_users)
 
+        st.divider()
         with st.form("crear_usuario_form"):
             new_user = st.text_input("Usuario")
             new_pass = st.text_input("Contraseña", type="password")
             new_role = st.selectbox("Rol", ["user", "admin", "superadmin"])
-            submit_user = st.form_submit_button("Crear Usuario")
+            submit_user = st.form_submit_button("Crear Usuario", use_container_width=True)
         if submit_user and new_user and new_pass:
             create_user(new_user, new_pass, new_role)
             st.success("Usuario creado")
             st.rerun()
 
+        st.divider()
         del_id = st.number_input("ID a eliminar", min_value=1, step=1)
-        if st.button("Eliminar Usuario"):
+        if st.button("Eliminar Usuario", use_container_width=True):
             delete_user(int(del_id))
             st.success("Usuario eliminado")
             st.rerun()
