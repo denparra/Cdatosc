@@ -3247,7 +3247,7 @@ def render_superadmin_multidb_page() -> None:
     filtered_df = enrich_with_availability(filtered_df)
 
     # Filtro por estado de disponibilidad
-    estado_options = ["disponible", "no_disponible", "pendiente", "error"]
+    estado_options = ["disponible", "no_disponible", "eliminado", "error", "pendiente"]
     selected_estados = st.multiselect("Filtrar por estado", estado_options, key="superadmin_estado_filter")
     if selected_estados:
         selected_estado_set = {str(v).strip() for v in selected_estados}
