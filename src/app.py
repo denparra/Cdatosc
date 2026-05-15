@@ -1303,6 +1303,155 @@ def build_superadmin_multidb_export_dataframe(selected_sources: list[dict[str, A
         return pd.DataFrame()
     return pd.concat(frames, ignore_index=True)
 
+
+def check_chileautos_availability(url: str) -> dict[str, Any]:
+    """Verifica si un aviso de chileautos.cl esta disponible o no."""
+    result = {
+        "url": url,
+        "status_code": None,
+        "available": None,
+        "signals": [],
+        "error": None,
+    }
+    try:
+        headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/132.0.0.0 Safari/537.36"
+            ),
+            "Accept": "text/html,application/xhtml+xml",
+            "Accept-Language": "es-CL,es;q=0.9",
+        }
+        resp = requests.get(url, headers=headers, timeout=30)
+        result["status_code"] = resp.status_code
+        resp.raise_for_status()
+    except Exception as exc:
+        result["error"] = f"Request failed: {exc}"
+        return result
+
+    soup = BeautifulSoup(resp.text, "html.parser")
+    html_text = resp.text.lower()
+
+    # Señal 1: gallery_meta con salestatus Sold o issold true
+    gallery_meta_match = re.search(
+        r'var\s+gallery_meta\s*=\s*({.*?});', resp.text, re.DOTALL
+    )
+    if gallery_meta_match:
+        meta_raw = gallery_meta_match.group(1).lower()
+        if '"salestatus":"sold"' in meta_raw or '"issold":"true"' in meta_raw:
+            result["signals"].append("gallery_meta indica vendido (salestatus=Sold / issold=true)")
+    else:
+        if '"salestatus":"sold"' in html_text or '"issold":"true"' in html_text:
+            result["signals"].append("HTML contiene salestatus=Sold / issold=true")
+
+    # Señal 2: badge soldorunavailable
+    if '<csn-badge type="soldorunavailable"' in resp.text:
+        result["signals"].append("Badge soldorunavailable presente")
+
+    # Señal 3: ausencia de boton contacto
+    has_contact_btn = bool(
+        soup.find("a", class_="csn-btn-lead")
+        or "contacta al vendedor" in html_text
+    )
+    if not has_contact_btn:
+        result["signals"].append("No hay boton 'Contacta al vendedor'")
+
+    unavailable_signals = [
+        s for s in result["signals"]
+        if any(k in s.lower() for k in ["vendido", "sold", "unavailable", "no hay"])
+    ]
+    if unavailable_signals:
+        result["available"] = False
+    elif has_contact_btn:
+        result["available"] = True
+    else:
+        result["available"] = None
+
+    return result
+
+
+def save_availability_result(url: str, estado: str, senales: str) -> None:
+    """Guarda o actualiza el estado de disponibilidad de una URL."""
+    now = datetime.datetime.now().isoformat(timespec="seconds")
+    with get_connection() as con:
+        con.execute(
+            "INSERT OR REPLACE INTO contacto_disponibilidad (url_link, estado, verificado_en, senales) VALUES (?, ?, ?, ?)",
+            (url, estado, now, senales),
+        )
+        con.commit()
+
+
+def get_availability_for_urls(urls: list[str]) -> pd.DataFrame:
+    """Devuelve DataFrame con estado de disponibilidad para una lista de URLs."""
+    if not urls:
+        return pd.DataFrame(columns=["url_link", "estado", "verificado_en", "senales"])
+    placeholders = ",".join(["?"] * len(urls))
+    query = f"""
+        SELECT url_link, estado, verificado_en, senales
+        FROM contacto_disponibilidad
+        WHERE url_link IN ({placeholders})
+    """
+    return read_query(query, params=urls)
+
+
+def verify_batch_with_progress(
+    urls: list[str],
+    delay_seconds: float = 4.0,
+    batch_size: int = 5,
+    batch_pause: float = 15.0,
+) -> None:
+    """Verifica disponibilidad de N links con rate limiting y guarda en BD."""
+    total = len(urls)
+    progress_bar = st.progress(0, text="Iniciando verificacion...")
+    for i, url in enumerate(urls, 1):
+        try:
+            res = check_chileautos_availability(url)
+            if res["error"]:
+                estado = "error"
+                senales = res["error"]
+            elif res["available"] is True:
+                estado = "disponible"
+                senales = " | ".join(res["signals"]) if res["signals"] else "-"
+            elif res["available"] is False:
+                estado = "no_disponible"
+                senales = " | ".join(res["signals"]) if res["signals"] else "-"
+            else:
+                estado = "pendiente"
+                senales = "Indeterminado"
+            save_availability_result(url, estado, senales)
+        except Exception as exc:
+            save_availability_result(url, "error", str(exc))
+
+        pct = int((i / total) * 100)
+        progress_bar.progress(pct, text=f"Verificando {i}/{total}...")
+
+        if i % batch_size == 0 and i < total:
+            time.sleep(batch_pause)
+        elif i < total:
+            time.sleep(delay_seconds)
+    progress_bar.empty()
+
+
+def enrich_with_availability(df: pd.DataFrame) -> pd.DataFrame:
+    """Enriquece un DataFrame consolidado con la columna Estado desde contacto_disponibilidad."""
+    if df.empty or "Link" not in df.columns:
+        df["Estado"] = "pendiente"
+        return df
+    links = df["Link"].dropna().astype(str).unique().tolist()
+    disp_df = get_availability_for_urls(links)
+    if disp_df.empty:
+        df["Estado"] = "pendiente"
+        return df
+    disp_map = {
+        str(row["url_link"]): str(row["estado"])
+        for _, row in disp_df.iterrows()
+    }
+    df = df.copy()
+    df["Estado"] = df["Link"].apply(lambda url: disp_map.get(str(url), "pendiente"))
+    return df
+
+
 def get_connection():
     """Retorna una nueva conexión a la base de datos."""
     os.makedirs(db_dir, exist_ok=True)
@@ -1525,6 +1674,14 @@ def create_tables():
                 fecha_exportacion TEXT NOT NULL,
                 FOREIGN KEY (contact_id) REFERENCES contactos(id),
                 FOREIGN KEY (mensaje_id) REFERENCES mensajes(id)
+            )
+        ''')
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS contacto_disponibilidad (
+                url_link TEXT PRIMARY KEY,
+                estado TEXT CHECK(estado IN ('disponible','no_disponible','pendiente','error')),
+                verificado_en TEXT,
+                senales TEXT
             )
         ''')
         con.commit()
@@ -3071,10 +3228,38 @@ def render_superadmin_multidb_page() -> None:
         filtered_df = filtered_df[filtered_df["Origen"].astype(str).str.strip().isin(selected_origin_set)]
     filtered_df = apply_vehicle_export_filters(filtered_df, selected_brands, year_range, include_missing_year)
 
+    # Enriquecer con estado de disponibilidad
+    filtered_df = enrich_with_availability(filtered_df)
+
+    # Filtro por estado de disponibilidad
+    estado_options = ["disponible", "no_disponible", "pendiente", "error"]
+    selected_estados = st.multiselect("Filtrar por estado", estado_options, key="superadmin_estado_filter")
+    if selected_estados:
+        selected_estado_set = {str(v).strip() for v in selected_estados}
+        filtered_df = filtered_df[filtered_df["Estado"].astype(str).str.strip().isin(selected_estado_set)]
+
     st.caption(f"Registros listos para exportar: {len(filtered_df)} de {len(combined_df)}")
     if filtered_df.empty:
         st.warning("No hay datos para exportar con los filtros seleccionados.")
         return
+
+    # Boton de verificacion de disponibilidad
+    urls_to_check = filtered_df["Link"].dropna().astype(str).unique().tolist()
+    urls_to_check = [u for u in urls_to_check if u.strip().startswith("http")]
+    st.caption(f"Links filtrados con URL valida: {len(urls_to_check)}")
+    if st.button("Verificar disponibilidad de filtrados", use_container_width=True):
+        if len(urls_to_check) > 500:
+            st.warning(f"Hay {len(urls_to_check)} links. El limite seguro es 500. Ajusta los filtros.")
+        else:
+            with st.spinner(f"Verificando {len(urls_to_check)} aviso(s)..."):
+                verify_batch_with_progress(
+                    urls_to_check,
+                    delay_seconds=4.0,
+                    batch_size=5,
+                    batch_pause=15.0,
+                )
+            st.success("Verificacion completada.")
+            st.rerun()
 
     st.dataframe(filtered_df, use_container_width=True)
 
