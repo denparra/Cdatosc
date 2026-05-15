@@ -1305,11 +1305,18 @@ def build_superadmin_multidb_export_dataframe(selected_sources: list[dict[str, A
 
 
 def check_chileautos_availability(url: str) -> dict[str, Any]:
-    """Verifica si un aviso de chileautos.cl esta disponible o no."""
+    """
+    Verifica si un aviso de chileautos.cl esta disponible o no.
+
+    Retorna dict con:
+      - estado: 'disponible' | 'no_disponible' | 'eliminado' | 'error' | 'pendiente'
+      - signals: lista de señales encontradas
+      - error: mensaje de error si falló el request
+    """
     result = {
         "url": url,
         "status_code": None,
-        "available": None,
+        "estado": "pendiente",
         "signals": [],
         "error": None,
     }
@@ -1323,52 +1330,67 @@ def check_chileautos_availability(url: str) -> dict[str, Any]:
             "Accept": "text/html,application/xhtml+xml",
             "Accept-Language": "es-CL,es;q=0.9",
         }
-        resp = requests.get(url, headers=headers, timeout=30)
+        resp = requests.get(url, headers=headers, timeout=30, allow_redirects=True)
         result["status_code"] = resp.status_code
-        resp.raise_for_status()
-    except Exception as exc:
-        result["error"] = f"Request failed: {exc}"
+        html_text = resp.text.lower()
+        final_url = resp.url.lower()
+
+        # Escenario 1: Eliminado (redirige a página de búsqueda o 404)
+        if resp.status_code in (404, 410):
+            result["estado"] = "eliminado"
+            result["signals"].append("HTTP 404/410 - Aviso eliminado")
+            return result
+
+        # Si redirigió a una página de búsqueda (lista de resultados)
+        if "/vehiculos/?" in final_url or "/vehiculos/bmw/" in final_url or "buscando" in html_text:
+            result["estado"] = "eliminado"
+            result["signals"].append("Redirigido a pagina de busqueda - Aviso eliminado")
+            return result
+
+        soup = BeautifulSoup(resp.text, "html.parser")
+
+        # Escenario 2: Vendido/No disponible
+        gallery_meta_match = re.search(
+            r'var\s+gallery_meta\s*=\s*({.*?});', resp.text, re.DOTALL
+        )
+        if gallery_meta_match:
+            meta_raw = gallery_meta_match.group(1).lower()
+            if '"salestatus":"sold"' in meta_raw or '"issold":"true"' in meta_raw:
+                result["signals"].append("gallery_meta indica vendido (salestatus=Sold / issold=true)")
+        else:
+            if '"salestatus":"sold"' in html_text or '"issold":"true"' in html_text:
+                result["signals"].append("HTML contiene salestatus=Sold / issold=true")
+
+        if '<csn-badge type="soldorunavailable"' in resp.text:
+            result["signals"].append("Badge soldorunavailable presente")
+
+        has_contact_btn = bool(
+            soup.find("a", class_="csn-btn-lead")
+            or "contacta al vendedor" in html_text
+        )
+        if not has_contact_btn:
+            result["signals"].append("No hay boton 'Contacta al vendedor'")
+
+        unavailable_signals = [
+            s for s in result["signals"]
+            if any(k in s.lower() for k in ["vendido", "sold", "unavailable", "no hay"])
+        ]
+        if unavailable_signals:
+            result["estado"] = "no_disponible"
+            return result
+
+        # Escenario 3: Disponible
+        if has_contact_btn:
+            result["estado"] = "disponible"
+            return result
+
+        # Si no se pudo determinar, queda como pendiente
         return result
 
-    soup = BeautifulSoup(resp.text, "html.parser")
-    html_text = resp.text.lower()
-
-    # Señal 1: gallery_meta con salestatus Sold o issold true
-    gallery_meta_match = re.search(
-        r'var\s+gallery_meta\s*=\s*({.*?});', resp.text, re.DOTALL
-    )
-    if gallery_meta_match:
-        meta_raw = gallery_meta_match.group(1).lower()
-        if '"salestatus":"sold"' in meta_raw or '"issold":"true"' in meta_raw:
-            result["signals"].append("gallery_meta indica vendido (salestatus=Sold / issold=true)")
-    else:
-        if '"salestatus":"sold"' in html_text or '"issold":"true"' in html_text:
-            result["signals"].append("HTML contiene salestatus=Sold / issold=true")
-
-    # Señal 2: badge soldorunavailable
-    if '<csn-badge type="soldorunavailable"' in resp.text:
-        result["signals"].append("Badge soldorunavailable presente")
-
-    # Señal 3: ausencia de boton contacto
-    has_contact_btn = bool(
-        soup.find("a", class_="csn-btn-lead")
-        or "contacta al vendedor" in html_text
-    )
-    if not has_contact_btn:
-        result["signals"].append("No hay boton 'Contacta al vendedor'")
-
-    unavailable_signals = [
-        s for s in result["signals"]
-        if any(k in s.lower() for k in ["vendido", "sold", "unavailable", "no hay"])
-    ]
-    if unavailable_signals:
-        result["available"] = False
-    elif has_contact_btn:
-        result["available"] = True
-    else:
-        result["available"] = None
-
-    return result
+    except Exception as exc:
+        result["error"] = f"Request failed: {exc}"
+        result["estado"] = "error"
+        return result
 
 
 def save_availability_result(url: str, estado: str, senales: str) -> None:
@@ -1407,18 +1429,11 @@ def verify_batch_with_progress(
     for i, url in enumerate(urls, 1):
         try:
             res = check_chileautos_availability(url)
+            estado = res["estado"]
             if res["error"]:
-                estado = "error"
                 senales = res["error"]
-            elif res["available"] is True:
-                estado = "disponible"
-                senales = " | ".join(res["signals"]) if res["signals"] else "-"
-            elif res["available"] is False:
-                estado = "no_disponible"
-                senales = " | ".join(res["signals"]) if res["signals"] else "-"
             else:
-                estado = "pendiente"
-                senales = "Indeterminado"
+                senales = " | ".join(res["signals"]) if res["signals"] else "-"
             save_availability_result(url, estado, senales)
         except Exception as exc:
             save_availability_result(url, "error", str(exc))
@@ -1679,7 +1694,7 @@ def create_tables():
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS contacto_disponibilidad (
                 url_link TEXT PRIMARY KEY,
-                estado TEXT CHECK(estado IN ('disponible','no_disponible','pendiente','error')),
+                estado TEXT CHECK(estado IN ('disponible','no_disponible','eliminado','error','pendiente')),
                 verificado_en TEXT,
                 senales TEXT
             )
@@ -3242,6 +3257,26 @@ def render_superadmin_multidb_page() -> None:
     if filtered_df.empty:
         st.warning("No hay datos para exportar con los filtros seleccionados.")
         return
+
+    # Contadores por estado
+    estado_counts = filtered_df["Estado"].value_counts().to_dict()
+    cols = st.columns(5)
+    estado_labels = {
+        "disponible": ("Disponible", "green"),
+        "no_disponible": ("No disponible", "red"),
+        "eliminado": ("Eliminado", "orange"),
+        "error": ("Error", "gray"),
+        "pendiente": ("Pendiente", "blue"),
+    }
+    for i, (estado_key, (label, color)) in enumerate(estado_labels.items()):
+        count = estado_counts.get(estado_key, 0)
+        with cols[i]:
+            st.markdown(
+                f"<div style='padding:8px;border-radius:6px;background-color:{color};color:white;text-align:center;'>"
+                f"<strong>{label}</strong><br/><span style='font-size:1.5em'>{count}</span>"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
 
     # Boton de verificacion de disponibilidad
     urls_to_check = filtered_df["Link"].dropna().astype(str).unique().tolist()

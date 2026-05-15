@@ -2,17 +2,17 @@
   "sources": {
     "barbara": {
       "alias": "barbara",
-      "label": "barb",
+      "label": "barbara",
       "path": "C:\\Users\\denny\\OneDrive\\Documentos\\PRACTICAS\\PYTHON\\Streamlit\\CODEX\\DATOS_CONSIGNACION\\data\\multi_db_sources\\current\\barbara.db",
       "original_name": "datos_consignacion.db",
-      "updated_at": "2026-04-22T09:57:06"
+      "updated_at": "2026-05-14T20:32:58"
     },
     "katherine": {
       "alias": "katherine",
-      "label": "kath",
+      "label": "katherine",
       "path": "C:\\Users\\denny\\OneDrive\\Documentos\\PRACTICAS\\PYTHON\\Streamlit\\CODEX\\DATOS_CONSIGNACION\\data\\multi_db_sources\\current\\katherine.db",
       "original_name": "datos_consignacion.db",
-      "updated_at": "2026-04-22T09:58:00"
+      "updated_at": "2026-05-14T20:33:21"
     }
   }
 }
